@@ -34,7 +34,7 @@ use encoding_rs::mem::convert_utf8_to_latin1_lossy;
 
 const FALCH: UserId = UserId(165_877_785_544_491_008);
 
-const PREFIX: &str = "]]";
+const PREFIX: &str = "]";
 
 #[command]
 #[description = "Set the status of the bot to be playing the set game"]
