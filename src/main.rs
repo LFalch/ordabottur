@@ -34,7 +34,7 @@ use encoding_rs::mem::convert_utf8_to_latin1_lossy;
 
 const FALCH: UserId = UserId(165_877_785_544_491_008);
 
-const PREFIX: &str = "]";
+const PREFIX: &str = "]]";
 
 #[command]
 #[description = "Set the status of the bot to be playing the set game"]
@@ -50,10 +50,15 @@ fn setgame(ctx: &mut Context, _msg: &Message, args: Args) -> CommandResult {
 fn gm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     match gm_entries(args.message(), 10) {
         Ok((results_msg, entries)) => {
-            msg.channel_id.say(&ctx, results_msg)?;
+            let mut msg_bunch = MsgBunch::new();
+            
+            msg_bunch
+                .add_string(&results_msg)
+                .add_string("\n")
+                .entries(entries);
 
-            for entry in entries {
-                msg.channel_id.say(&ctx, format!("{}", entry))?;
+            for msg_body in msg_bunch.messages {
+                msg.channel_id.say(&ctx, msg_body)?;
             }
         }
         Err(e) => {
@@ -73,7 +78,7 @@ struct Entry {
 
 impl Entry {
     #[inline(always)]
-    fn new(word: String, class: String, mut body: String) -> Self {
+    fn new_gm(word: String, class: String, mut body: String) -> Self {
         body = body.replace("&amp;", "&");
         body = body.replace("`", "\\`");
 
@@ -93,9 +98,6 @@ impl Entry {
             word, class, body
         }
     }
-    fn len(&self) -> usize {
-        6 + self.word.len() + self.class.len() + self.body.len()
-    }
 }
 
 use std::fmt::{self, Display};
@@ -105,6 +107,55 @@ impl Display for Entry {
         let Entry{word, class, body} = self;
 
         write!(f, "_{}_ ({})\n{}", word, class, body)
+    }
+}
+
+const MSG_LIMIT: usize = 2000;
+
+struct MsgBunch {
+    messages: Vec<String>,
+}
+
+impl MsgBunch {
+    fn new() -> Self {
+        MsgBunch {
+            messages: vec![String::with_capacity(MSG_LIMIT)]
+        }
+    }
+    fn add_string(&mut self, mut s: &str) -> &mut Self {
+        let mut len = self.messages.last().unwrap().len();
+
+        if len + s.len() > MSG_LIMIT {
+            while len + s.len() > MSG_LIMIT {
+                let split_index = MSG_LIMIT - len;
+
+                {
+                    let last_message = self.messages.last_mut().unwrap();
+                    last_message.push_str(&s[..split_index]);
+                    debug_assert_eq!(last_message.len(), MSG_LIMIT);
+                }
+                self.messages.push(String::with_capacity(MSG_LIMIT));
+
+                len = 0;
+                s = &s[split_index..];
+            }
+        }
+
+        let last_message = self.messages.last_mut().unwrap();
+        last_message.push_str(s);
+
+        self
+    }
+    fn entries(&mut self, entries: Vec<Entry>) -> &mut Self {
+        self.messages.push(String::with_capacity(MSG_LIMIT));
+
+        for entry in entries {
+            let entry_text = format!("{}\n", entry);
+
+            self.add_string(&dbg!(entry_text));
+        }
+
+        self
     }
 }
 
@@ -130,7 +181,7 @@ fn gm_entries(ord: &str, result_row_amount: u16) -> Result<(String, Vec<Entry>),
             let class = iter.next().unwrap();
             let body = iter.next().unwrap();
 
-            entries.push(Entry::new(word, class, body));
+            entries.push(Entry::new_gm(word, class, body));
         }
 
         // HACK don't look at this
@@ -166,26 +217,6 @@ fn gm_search_body(rb: RequestBuilder, word: &str, result_row_amount: u16) -> Req
         .body(format!("tabid=993&appid=59&C%23993.994.545%23994.995.546%23ORD={}&dosearch=++++S%F8k++++&oppsetttid=215&ResultatID=447&ResRowsNum={}",
             encoded, result_row_amount))
 }
-
-/*
-let mut error = None;
-        if let Ok(ref mut req) = self.request {
-            match serde_urlencoded::to_string(form) {
-                Ok(body) => {
-                    req.headers_mut().insert(
-                        CONTENT_TYPE,
-                        HeaderValue::from_static("application/x-www-form-urlencoded"),
-                    );
-                    *req.body_mut() = Some(body.into());
-                }
-                Err(err) => error = Some(crate::error::builder(err)),
-            }
-        }
-        if let Some(err) = error {
-            self.request = Err(err);
-        }
-        self
-*/
 
 #[command]
 #[description = "Say"]
