@@ -32,7 +32,7 @@ const PREFIX: &str = "]";
 
 mod dictionary;
 
-use dictionary::{gm_entries, MsgBunch};
+use dictionary::{sa_entries, sa_entry, gm_entries, MsgBunch};
 
 #[command]
 #[description = "Set the status of the bot to be playing the set game"]
@@ -66,6 +66,49 @@ fn gm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     Ok(())
 }
+#[command]
+#[description = "Søk i Setelarkivet"]
+fn sa(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    match sa_entries(args.message(), 35) {
+        Ok((results_msg, entries)) => {
+            let mut msg_bunch = MsgBunch::new();
+            
+            msg_bunch
+                .add_string(&results_msg)
+                .add_string("\n")
+                .entries(entries);
+
+            for msg_body in msg_bunch.messages {
+                msg.channel_id.say(&ctx, msg_body)?;
+            }
+        }
+        Err(e) => {
+            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e))?;
+        }
+    }
+
+    Ok(())
+}
+#[command]
+#[description = "Sjå eit oppslag frå Setelarkivet"]
+fn sai(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let id = args.single()?;
+
+    match sa_entry(id) {
+        Ok((oppslag, img_src)) => {
+            msg.channel_id.send_message(&ctx, |msg| {
+                msg
+                    .content(oppslag)
+                    .embed(|e| e.image(img_src))
+            })?;
+        }
+        Err(e) => {
+            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e))?;
+        }
+    }
+
+    Ok(())
+}
 
 #[command]
 #[description = "Say"]
@@ -76,7 +119,7 @@ fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[group]
-#[commands(gm)]
+#[commands(gm, sa, sai)]
 #[only_in("guilds")]
 #[help_available]
 struct General;
@@ -93,6 +136,7 @@ struct ModOnly;
 struct Owner;
 
 #[help]
+// #[alias("h", "hjelp", "hjælp", "hjálp")]
 #[lacking_permissions = "Hide"]
 #[max_levenshtein_distance(4)]
 fn help(
