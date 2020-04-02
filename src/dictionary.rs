@@ -162,7 +162,7 @@ pub fn sa_entries(ord: &str, result_row_amount: u16) -> Result<(String, Vec<Entr
         Err(res.status().as_u16())
     }
 }
-pub fn sa_entry(id: u32) -> Result<(String, String), u16> {
+pub fn sa_entry(id: u32) -> Result<(String, Option<String>), u16> {
     let res = reqwest_get(&format!("https://www.edd.uio.no/perl/search/objectviewer.cgi?tabid=436&primarykey={}", id)).unwrap();
 
     if res.status().is_success() {
@@ -174,9 +174,19 @@ pub fn sa_entry(id: u32) -> Result<(String, String), u16> {
 
         let oppslag = html.select(&oppslag_selector).next().unwrap().inner_html().trim().to_owned();
         let grammar = html.select(&grammar_selector).next().unwrap().inner_html().trim().to_owned();
-        let img = format!("https://www.edd.uio.no{}", html.select(&img_selector).next().unwrap().value().attr("src").unwrap_or("/"));
+        
+        match html.select(&img_selector).next().map(|img| img.value().attr("src").unwrap_or("/")) {
+            Some(url) => {
+                let img = format!("https://www.edd.uio.no{}", url);
+                Ok((format!("**{}** ({})", oppslag, grammar), Some(img)))
+            }
+            None => {
+                let kontekst_selector = Selector::parse(".kontekst").unwrap();
+                let kontekst = html.select(&kontekst_selector).next().unwrap().inner_html().trim().to_owned();
 
-        Ok((format!("_{}_ ({})", oppslag, grammar), img))
+                Ok((format!("**{}** ({})\n_{}_", oppslag, grammar, kontekst), None))
+            }
+        }
     } else {
         Err(res.status().as_u16())
     }

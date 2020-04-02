@@ -97,9 +97,13 @@ fn sai(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     match sa_entry(id) {
         Ok((oppslag, img_src)) => {
             msg.channel_id.send_message(&ctx, |msg| {
-                msg
-                    .content(oppslag)
-                    .embed(|e| e.image(img_src))
+                msg.content(oppslag);
+
+                if let Some(img_src) = img_src {
+                    msg.embed(|e| e.image(img_src))
+                } else {
+                    msg
+                }
             })?;
         }
         Err(e) => {
