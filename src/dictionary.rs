@@ -129,11 +129,11 @@ pub fn gm_entries(ord: &str, result_row_amount: u16) -> Result<(String, Vec<Entr
     }
 }
 
-pub fn sa_entries(ord: &str, result_row_amount: u16) -> Result<(String, Vec<Entry>), u16> {
+pub fn sa_entries(ord: &str, result_row_amount: u16, options: SetelArkivOptions) -> Result<(String, Vec<Entry>), u16> {
     let client = ReqClient::new();
 
     let res = sa_post(client.post("http://www.edd.uio.no/perl/search/search.cgi"),
-        ord, "", "", "", result_row_amount)
+        ord, result_row_amount, options)
         .send()
         .unwrap();
 
@@ -198,16 +198,31 @@ fn gm_post(rb: RequestBuilder, word: &str, result_row_amount: u16) -> RequestBui
         .body(format!("tabid=993&appid=59&C%23993.994.545%23994.995.546%23ORD={}&dosearch=++++S%F8k++++&oppsetttid=215&ResultatID=447&ResRowsNum={}",
             uio_encode(word), result_row_amount))
 }
-fn sa_post(rb: RequestBuilder, word_form: &str, registrant: &str, title: &str, author: &str, result_row_amount: u16) -> RequestBuilder {
-    const AREA_CODE: &str = "";
-    const PLACE_CODE: &str = "";
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct SetelArkivOptions<'a> {
+    pub registrant: &'a str, 
+    pub title: &'a str,
+    pub author: &'a str,
+    pub area_code: &'a str,
+    pub place_code: &'a str,
+}
+
+fn sa_post(rb: RequestBuilder, word_form: &str, result_row_amount: u16, options: SetelArkivOptions) -> RequestBuilder {
+    let SetelArkivOptions {
+        registrant,
+        title,
+        author,
+        area_code,
+        place_code,
+    } = options;
 
     rb
         .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
         .body(format!("tabid=436&appid=8&C%23436.437.235%23ORDFORM={}&C%23436.447.243%23PERSONNAMN={}&C%23436.443.239%23443.444.240%23FORFATTAR={}\
                         &C%23436.443.239%23443.444.240%23TITTEL={}&C%23436.1855.1051%231855.448.1050%23STADNAMNKODE={}&C%23436.635.339%23635.448.341%23STADNAMNKODE={}\
                         &C%23SETEL_ID=&dosearch=++++S%F8k++++&oppsettid=216&ResultatID=328&ResRowsNum={}",
-            uio_encode(word_form), uio_encode(registrant), uio_encode(author), uio_encode(title), AREA_CODE, PLACE_CODE, result_row_amount))
+            uio_encode(word_form), uio_encode(registrant), uio_encode(author), uio_encode(title), uio_encode(area_code), uio_encode(place_code), result_row_amount))
 }
 
 fn uio_encode(s: &str) -> String {

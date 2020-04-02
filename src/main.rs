@@ -32,7 +32,7 @@ const PREFIX: &str = "]";
 
 mod dictionary;
 
-use dictionary::{sa_entries, sa_entry, gm_entries, MsgBunch};
+use dictionary::{sa_entries, sa_entry, gm_entries, MsgBunch, SetelArkivOptions};
 
 #[command]
 #[description = "Set the status of the bot to be playing the set game"]
@@ -66,10 +66,41 @@ fn gm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     Ok(())
 }
+
 #[command]
 #[description = "Søk i Setelarkivet"]
+#[usage = "[-r <registrant>] [-f <forfattar>] [-t <tittel>] [-o <område>] [-s|p <stad>] [oppslagsord]"]
 fn sa(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    match sa_entries(args.message(), 35) {
+    let mut options = SetelArkivOptions::default();
+    let mut oppslag = "";
+
+    {
+        let mut cur_option = None;
+    
+        for arg in args.raw() {
+            if arg.starts_with('-') {
+                cur_option = Some(&arg[1..]);
+            } else if let Some(option) = cur_option {
+                match option {
+                    "r" => options.registrant = arg,
+                    "f" => options.author = arg,
+                    "t" => options.title = arg,
+                    "o" => options.area_code = arg,
+                    "s" | "p" => options.place_code = arg,
+                    _ => {
+                        msg.reply(ctx, "Ukjend søkjeinstilling")?;
+
+                        return Ok(());
+                    }
+                }
+                cur_option = None;
+            } else {
+                oppslag = arg;
+            }
+        }
+    }
+
+    match sa_entries(oppslag, 35, options) {
         Ok((results_msg, entries)) => {
             let mut msg_bunch = MsgBunch::new();
             
