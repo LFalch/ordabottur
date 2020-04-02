@@ -152,7 +152,7 @@ impl MsgBunch {
         for entry in entries {
             let entry_text = format!("{}\n", entry);
 
-            self.add_string(&dbg!(entry_text));
+            self.add_string(&entry_text);
         }
 
         self
@@ -185,7 +185,6 @@ fn gm_entries(ord: &str, result_row_amount: u16) -> Result<(String, Vec<Entry>),
         }
 
         // HACK don't look at this
-
         let results = html.select(&result_number_selector).next().unwrap().text().next().unwrap().to_owned();
 
         Ok((results, entries))
