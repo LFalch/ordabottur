@@ -26,6 +26,7 @@ use serenity::model::{
 };
 
 const FALCH: UserId = UserId(165_877_785_544_491_008);
+const EILIV: UserId = UserId(234_039_000_036_409_344);
 
 const PREFIX: &str = "]";
 
@@ -69,10 +70,8 @@ fn gm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[description = "Say"]
 fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    if msg.author.id == FALCH || msg.author.id == 234_039_000_036_409_344 {
-        msg.channel_id.say(&ctx, args.message())?;
-        msg.delete(&ctx)?;
-    }
+    msg.channel_id.say(&ctx, args.message())?;
+    msg.delete(&ctx)?;
     Ok(())
 }
 
@@ -83,13 +82,13 @@ fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 struct General;
 
 #[group]
-#[commands(setgame)]
 #[only_in("guilds")]
 #[required_permissions(ADMINISTRATOR)]
 struct ModOnly;
 
 #[group]
-#[commands(say)]
+#[commands(setgame, say)]
+#[owners_only]
 #[only_in("guilds")]
 struct Owner;
 
@@ -113,7 +112,12 @@ fn main() {
     let mut client = Client::new(&token, Handler).unwrap();
 
     client.with_framework(StandardFramework::new()
-        .configure(|c| c.prefix(PREFIX).allow_dm(true))
+        .configure(|c| c.dynamic_prefix(|_c, _m| {
+            match std::fs::read_to_string(".prefix_override") {
+                Ok(s) => Some(s),
+                Err(_) => Some(PREFIX.to_owned()),
+            }
+        }).allow_dm(true).owners(vec![FALCH, EILIV].into_iter().collect()))
         .group(&GENERAL_GROUP)
         .group(&OWNER_GROUP)
         .group(&MODONLY_GROUP)
@@ -140,7 +144,6 @@ impl EventHandler for Handler {
         }
     }
 
-    #[allow(clippy::cognitive_complexity)]
     fn message(&self, _ctx: Context, msg: Message) {
         if msg.author.bot {
             return
