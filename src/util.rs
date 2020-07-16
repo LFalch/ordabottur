@@ -18,7 +18,7 @@ impl Entry {
         body = body.replace("&nbsp;", " ");
         body = body.replace("&oogon;", "ǫ");
         body = body.replace("&omacr;", "ō");
-        body = body.replace("&ocedil;", "");
+        body = body.replace("&ocedil;", "ǫ");
         body = body.replace("&kryss;", "♯");
         body = body.replace("&divide;", "÷");
         body = body.replace("&dagger;", "†");
