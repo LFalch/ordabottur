@@ -30,9 +30,13 @@ const EILIV: UserId = UserId(234_039_000_036_409_344);
 
 const PREFIX: &str = "]";
 
-mod dictionary;
+mod dictionary {
+    pub mod uio;
+}
+pub mod util;
 
-use dictionary::{sa_entries, sa_entry, gm_entries, MsgBunch, SetelArkivOptions};
+use dictionary::uio::{sa_entries, sa_entry, gm_entries, SetelArkivOptions};
+use util::MsgBunch;
 
 #[command]
 #[description = "Set the status of the bot to be playing the set game"]
