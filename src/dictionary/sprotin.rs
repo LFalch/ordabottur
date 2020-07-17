@@ -3,6 +3,7 @@ use reqwest::{
 };
 use serde_json::from_reader;
 use serde::{Deserialize, Deserializer};
+use scraper::Html;
 
 use crate::util::MsgBunch;
 
@@ -37,8 +38,17 @@ struct DictionaryResults {
     results: u32
 }
 #[derive(Debug, Clone, Deserialize)]
-struct NewWordsStatus {
-    status: String,
+#[serde(untagged)]
+enum NewWordsStatus {
+    Status {status: String},
+    List(Vec<NewWord>)
+}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct NewWord {
+    search_word: String,
+    display_word: String,
+    date: String,
 }
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -95,7 +105,7 @@ struct SprotinWord {
     // Type hmm
     word_list: Option<String>,
     // Inflexional categories
-    inflex_cats: String,
+    inflex_cats: Option<String>,
     short_inflected_form: Option<String>,
     #[serde(deserialize_with = "self::deserialize_optional_vec")]
     inflected_form: Vec<String>,
@@ -105,7 +115,7 @@ struct SprotinWord {
     origin_source: Option<String>,
     grammar_comment: Option<String>,
     // Type hmm
-    word_nr: Option<String>,
+    word_nr: Option<u16>,
     index: u64,
     phonetic: Option<String>,
     // Type should be Date it's in yyyy-mm-dd hh:mm:ss
@@ -124,7 +134,19 @@ impl SprotinWord {
             dbg!((&self.search_word, &self.display_word));
         }
 
-        let mut s = format!("**{}** _{}_", self.display_word, self.inflex_cats);
+        
+
+        let mut s = format!("**{}**", self.display_word);
+
+        if let Some(mut inflex_cats) = self.inflex_cats.clone() {
+            // Use scraper here instead <span class="_c"> seems to be equivalent to <sup> here
+            if let (Some(i), Some(j)) = (inflex_cats.find("<sup>"), inflex_cats.find("</sup>")) {
+                inflex_cats = format!("{} {}{} ", &inflex_cats[..i], crate::util::to_superscript(&inflex_cats[i+5..j]), &inflex_cats[j+6..]);
+            }
+
+            s.push_str(&format!(" _{}_", inflex_cats));
+        }
+
         if let Some(short_inflected_form) = &self.short_inflected_form {
             s.push_str(&format!(", _{}_", short_inflected_form));
         }
@@ -133,6 +155,8 @@ impl SprotinWord {
         }
 
         if let Some(phonetic) = &self.phonetic {
+            let phonetic: String = Html::parse_fragment(phonetic).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
+
             s.push_str(&format!(" {}", phonetic));
         }
 
@@ -142,7 +166,12 @@ impl SprotinWord {
             (None, None) => (),
         }
         s.push('\n');
-        s.push_str(&self.explanation);
+        {
+            // TODO interpret different classes appropriately (this rn just ignores all html tags and just retrieves the raw text)
+            let explanation: String = Html::parse_fragment(&self.explanation).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
+
+            s.push_str(&explanation);
+        }
 
         s.push('\n');
         s.push_str("Bendingar: ");
@@ -179,6 +208,10 @@ pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_
             ..
         } = from_reader(res).unwrap();
 
+        if !related_words.is_empty() || !similar_words.is_empty() {
+            dbg!((related_words, similar_words));
+        }
+
         let mut msg_bunch = MsgBunch::new();
 
         if let Some(message) = &message {
@@ -192,7 +225,7 @@ pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_
                 .add_string("\n");
         }
         for word in words {
-            msg_bunch.add_string(&word.tos()).add_string("\n");
+            msg_bunch.add_string("\n").add_string(&word.tos()).add_string("\n");
         }
 
 

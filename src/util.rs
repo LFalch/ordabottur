@@ -58,12 +58,16 @@ impl MsgBunch {
 
         if len + s.len() > MSG_LIMIT {
             while len + s.len() > MSG_LIMIT {
-                let split_index = MSG_LIMIT - len;
+                let mut split_index = MSG_LIMIT - len;
+
+                while !s.is_char_boundary(split_index) {
+                    split_index -= 1;
+                }
 
                 {
                     let last_message = self.messages.last_mut().unwrap();
                     last_message.push_str(&s[..split_index]);
-                    debug_assert_eq!(last_message.len(), MSG_LIMIT);
+                    debug_assert!(last_message.len() <= MSG_LIMIT);
                 }
                 self.messages.push(String::with_capacity(MSG_LIMIT));
 
@@ -88,4 +92,26 @@ impl MsgBunch {
 
         self
     }
+}
+
+pub fn num_to_super(c: char) -> char {
+    match c {
+        '-' => '⁻',
+        '0' => '⁰',
+        '1' => '¹',
+        '2' => '²',
+        '3' => '³',
+        '4' => '⁴',
+        '5' => '⁵',
+        '6' => '⁶',
+        '7' => '⁷',
+        '8' => '⁸',
+        '9' => '⁹',
+        c => c
+    }
+}
+
+#[inline]
+pub fn to_superscript(src: &str) -> String {
+    src.chars().map(num_to_super).collect()
 }

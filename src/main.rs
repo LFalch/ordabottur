@@ -150,12 +150,8 @@ fn sai(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 
     Ok(())
 }
-
-#[command]
-#[description = "Look up a word in the Faroese-Danish dictionary"]
-fn fod(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    // fo_search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_inflections: bool, search_descriptions: bool, skip_other_dictionaries_results: bool, skip_similar_words: bool)
-    match fo_search(4, 1, &args.single::<String>().unwrap(), false, false, true, true) {
+fn sprotin_lookup(dictionary_id: u8, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    match fo_search(dictionary_id, 1, &args.single::<String>()?, false, false, true, true) {
         Ok(msg_bunch) => {
             for msg_body in msg_bunch.messages {
                 msg.channel_id.say(&ctx, msg_body)?;
@@ -169,6 +165,52 @@ fn fod(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 }
 
 #[command]
+#[description = "Look up a word in the Faroese-Faroese dictionary"]
+fn fof(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    sprotin_lookup(1, ctx, msg, args)
+}
+#[command]
+#[description = "Look up a word in the Faroese-English dictionary"]
+fn fon(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    sprotin_lookup(2, ctx, msg, args)
+}
+#[command]
+#[description = "Look up a word in the English-Faroese dictionary"]
+fn enf(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    sprotin_lookup(3, ctx, msg, args)
+}
+#[command]
+#[description = "Look up a word in the Faroese-Danish dictionary"]
+fn fod(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    sprotin_lookup(4, ctx, msg, args)
+}
+#[command]
+#[description = "Look up a word in the Danish-Faroese dictionary"]
+fn daf(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    sprotin_lookup(5, ctx, msg, args)
+}
+#[command]
+#[description = "Look up a word in the 2nd Danish-Faroese dictionary"]
+fn daf2(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    sprotin_lookup(21, ctx, msg, args)
+}
+#[command]
+#[description = "Look up a word in the Faroese-German dictionary"]
+fn fot(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    sprotin_lookup(6, ctx, msg, args)
+}
+#[command]
+#[description = "Look up a word in the German-Faroese dictionary"]
+fn tyf(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    sprotin_lookup(7, ctx, msg, args)
+}
+#[command]
+#[description = "Look up a word in the Russian-Faroese dictionary"]
+fn ruf(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    sprotin_lookup(12, ctx, msg, args)
+}
+
+#[command]
 #[description = "Say"]
 fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     msg.channel_id.say(&ctx, args.message())?;
@@ -177,7 +219,7 @@ fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[group]
-#[commands(gm, sa, sai, fod)]
+#[commands(gm, sa, sai, fof, fon, enf, fod, daf, daf2, fot, tyf, ruf)]
 #[only_in("guilds")]
 #[help_available]
 struct General;
