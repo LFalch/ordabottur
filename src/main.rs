@@ -32,10 +32,12 @@ const PREFIX: &str = "]";
 
 mod dictionary {
     pub mod uio;
+    pub mod sprotin;
 }
 pub mod util;
 
 use dictionary::uio::{sa_entries, sa_entry, gm_entries, SetelArkivOptions};
+use dictionary::sprotin::search as fo_search;
 use util::MsgBunch;
 
 #[command]
@@ -150,6 +152,23 @@ fn sai(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 }
 
 #[command]
+#[description = "Look up a word in the Faroese-Danish dictionary"]
+fn fod(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    // fo_search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_inflections: bool, search_descriptions: bool, skip_other_dictionaries_results: bool, skip_similar_words: bool)
+    match fo_search(4, 1, &args.single::<String>().unwrap(), false, false, true, true) {
+        Ok(msg_bunch) => {
+            for msg_body in msg_bunch.messages {
+                msg.channel_id.say(&ctx, msg_body)?;
+            }
+        }
+        Err(e) => {
+            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e))?;
+        }
+    }
+    Ok(())
+}
+
+#[command]
 #[description = "Say"]
 fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     msg.channel_id.say(&ctx, args.message())?;
@@ -158,7 +177,7 @@ fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[group]
-#[commands(gm, sa, sai)]
+#[commands(gm, sa, sai, fod)]
 #[only_in("guilds")]
 #[help_available]
 struct General;
