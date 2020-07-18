@@ -3,6 +3,7 @@
 use std::{
     env,
     collections::{HashSet},
+    str::FromStr
 };
 
 use serenity::prelude::*;
@@ -150,9 +151,80 @@ fn sai(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 
     Ok(())
 }
-fn sprotin_lookup(dictionary_id: u8, ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    match fo_search(dictionary_id, 1, &args.single::<String>()?, false, false, true, true) {
-        Ok(msg_bunch) => {
+
+#[derive(Debug, Copy, Clone)]
+struct DictionaryId(u8);
+
+impl FromStr for DictionaryId {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, <Self as FromStr>::Err> {
+        if let Ok(id) = s.parse() {
+            return Ok(DictionaryId(id));
+        }
+
+        fn asciify(c: char) -> char {
+            match c {
+                'ø' => 'o',
+                'å' => 'a',
+                'æ' => 'e',
+                'í' => 'i',
+                'ý' => 'y',
+                'á' => 'a',
+                'é' => 'e',
+                'ó' => 'o',
+                'ú' => 'u',
+                c => c,
+            }
+        }
+
+        Ok(DictionaryId(match &*s.chars().filter_map(|c| if c.is_alphanumeric() { Some(c.to_lowercase()) } else { None }).flatten().map(asciify).collect::<String>() {
+            "fofo" | "fof" => 1,
+            "fon" | "foe" | "foen" => 2,
+            "enf" | "enfo" => 3,
+            "fod" | "foda" => 4,
+            "daf" | "dafo" => 5,
+            "daf2" | "dafo2" => 21,
+            "fot" | "foty" => 6,
+            "tyf" | "tyfo" => 7,
+            "fos" | "fosp" => 10,
+            "spf" | "spfo" => 20,
+            "grf" | "grfo" => 30,
+            "frf" | "frfo" => 9,
+            "foi" | "foit" => 11,
+            "ruf" | "rufo" => 12,
+            "fok" | "foki" => 24,
+            "kif" | "kifo" => 26,
+            
+            "sam" => 15,
+            "navn" => 25,
+            "alfr" => 22,
+            "tilt" => 23,
+            "yrk" => 13,
+            "busk" => 32,
+            _ => return Err(()),
+        }))
+    }
+}
+
+#[command]
+#[description = "Look up in a Sprotin dictionary. Usage: ]sprotin <dictionary> <word> [word number]"]
+#[aliases("fo")]
+#[min_args(1)]
+fn sprotin(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let dict = args.single::<DictionaryId>().unwrap_or(DictionaryId(1));
+
+    match fo_search(dict.0, 1, &args.single_quoted::<String>()?, false, false, true, true) {
+        Ok(result) => {
+            let msg_bunch;
+
+            if let Ok(id) = args.single() {
+                msg_bunch = result.word(id)
+            } else if let Ok("full") = args.single::<String>().as_ref().map(|s| &**s) {
+                msg_bunch = result.full_summary()
+            } else {
+                msg_bunch = result.summary()
+            }
+
             for msg_body in msg_bunch.messages {
                 msg.channel_id.say(&ctx, msg_body)?;
             }
@@ -164,50 +236,45 @@ fn sprotin_lookup(dictionary_id: u8, ctx: &mut Context, msg: &Message, mut args:
     Ok(())
 }
 
-#[command]
-#[description = "Look up a word in the Faroese-Faroese dictionary"]
-fn fof(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    sprotin_lookup(1, ctx, msg, args)
+macro_rules! short_commands {
+    ($(
+        $name:ident, ( $($alias:ident),+ ), $description:expr;
+    )*) => {
+        $(
+        #[command]
+        #[description = $description]
+        #[aliases($($alias),*)]
+        fn $name(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+            sprotin(ctx, msg, serenity::framework::standard::Args::new(&format!(concat!(stringify!($name), " {}"), args.message()), &[' '.into()]))
+        }
+        )*
+    };
 }
-#[command]
-#[description = "Look up a word in the Faroese-English dictionary"]
-fn fon(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    sprotin_lookup(2, ctx, msg, args)
-}
-#[command]
-#[description = "Look up a word in the English-Faroese dictionary"]
-fn enf(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    sprotin_lookup(3, ctx, msg, args)
-}
-#[command]
-#[description = "Look up a word in the Faroese-Danish dictionary"]
-fn fod(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    sprotin_lookup(4, ctx, msg, args)
-}
-#[command]
-#[description = "Look up a word in the Danish-Faroese dictionary"]
-fn daf(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    sprotin_lookup(5, ctx, msg, args)
-}
-#[command]
-#[description = "Look up a word in the 2nd Danish-Faroese dictionary"]
-fn daf2(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    sprotin_lookup(21, ctx, msg, args)
-}
-#[command]
-#[description = "Look up a word in the Faroese-German dictionary"]
-fn fot(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    sprotin_lookup(6, ctx, msg, args)
-}
-#[command]
-#[description = "Look up a word in the German-Faroese dictionary"]
-fn tyf(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    sprotin_lookup(7, ctx, msg, args)
-}
-#[command]
-#[description = "Look up a word in the Russian-Faroese dictionary"]
-fn ruf(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    sprotin_lookup(12, ctx, msg, args)
+
+short_commands! {
+    fof, (føf, fofo, føfø), "Look up a word in the Look up a word in the Faroese-Faroese dictionary";
+    foe, (fon, føn, føe, foen, føen), "Look up a word in the Faroese-English dictionary";
+    enf, (enfo, enfø), "Look up a word in the English-Faroese dictionary";
+    fod, (fød, foda, føda), "Look up a word in the Faroese-Danish dictionary";
+    daf, (dafo, dafø), "Look up a word in the Danish-Faroese dictionary";
+    daf2, (dafo2, dafø2), "Look up a word in the second Danish-Faroese dictionary";
+    fot, (føt, foty, føty), "Look up a word in the Faroese-German dictionary";
+    tyf, (tyfo, tyfø), "Look up a word in the German-Faroese dictionary";
+    fos, (fosp, føsp), "Look up a word in the Faroese-Spanish dictionary";
+    spf, (spfo, spfø), "Look up a word in the Spanish-Faroese dictionary";
+    grf, (grfo, grfø), "Look up a word in the Greek-Faroese dictionary";
+    frf, (frfo, frfø), "Look up a word in the French-Faroese dictionary";
+    foi, (foit, føit), "Look up a word in the Faroese-Italian dictionary";
+    ruf, (rufo, rufø), "Look up a word in the Russian-Faroese dictionary";
+    fok, (foki, føki), "Look up a word in the Faroese-Chinese dictionary";
+    kif, (kifo, kifø), "Look up a word in the Chinese-Faroese dictionary";
+    
+    sam, (fsam), "Leita eftir einum orði í Samheitaorðabókini";
+    navn, (fnavn), "Leita eftir einum orði í Góðkendum fólkanøvnum";
+    alfr, (falfr), "Leita eftir einum orði í Alfrøðibókini";
+    tilt, (ftilt), "Leita eftir einum orði í Føroyskari tiltaksorðabók";
+    yrk, (fyrk), "Leita eftir einum orði í Føroysk-yrkorðabók";
+    busk, (fbusk, búsk), "Leita eftir einum orði í Føroysk handils- og búskaparorðum";
 }
 
 #[command]
@@ -219,7 +286,7 @@ fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 
 #[group]
-#[commands(gm, sa, sai, fof, fon, enf, fod, daf, daf2, fot, tyf, ruf)]
+#[commands(gm, sa, sai, sprotin, fof, foe, enf, fod, daf, daf2, fot, tyf, fos, spf, grf, frf, foi, ruf, fok, kif, sam, navn, alfr, tilt, yrk, busk)]
 #[only_in("guilds")]
 #[help_available]
 struct General;

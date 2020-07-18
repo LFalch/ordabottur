@@ -1,3 +1,4 @@
+use std::num::NonZeroUsize;
 use reqwest::{
     blocking::get as reqwest_get
 };
@@ -8,7 +9,7 @@ use scraper::Html;
 use crate::util::MsgBunch;
 
 #[derive(Debug, Clone, Deserialize)]
-struct SprotinResponse {
+pub struct SprotinResponse {
     search_inflections: u8,
     search_description: u8,
     status: String,
@@ -125,16 +126,10 @@ struct SprotinWord {
 }
 
 impl SprotinWord {
-    pub fn tos(&self) -> String {
-        if let Some(prepend_word) = &self.prepend_word {
-            eprintln!("prepend_word: {}", prepend_word);
-        }
-
+    fn to_very_short_string(&self) -> String {
         if self.search_word != self.display_word {
             dbg!((&self.search_word, &self.display_word));
         }
-
-        
 
         let mut s = format!("**{}**", self.display_word);
 
@@ -144,10 +139,14 @@ impl SprotinWord {
                 inflex_cats = format!("{} {}{} ", &inflex_cats[..i], crate::util::to_superscript(&inflex_cats[i+5..j]), &inflex_cats[j+6..]);
             }
 
+            let inflex_cats: String = Html::parse_fragment(&inflex_cats).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
+
             s.push_str(&format!(" _{}_", inflex_cats));
         }
 
         if let Some(short_inflected_form) = &self.short_inflected_form {
+            let short_inflected_form: String = Html::parse_fragment(short_inflected_form).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
+
             s.push_str(&format!(", _{}_", short_inflected_form));
         }
         if let Some(short_inflection) = &self.short_inflection {
@@ -165,6 +164,40 @@ impl SprotinWord {
             (Some(origin), Some(origin_source)) => s.push_str(&format!(" (frá {} {})", origin, origin_source)),
             (None, None) => (),
         }
+
+        s
+    }
+
+    const SHORT_EXPLANATION_LENGTH: usize = 140;
+
+    pub fn to_short_string(&self) -> String {
+        let mut s = self.to_very_short_string();
+
+        s.push_str(":  ");
+
+        {
+            // TODO interpret different classes appropriately (this rn just ignores all html tags and just retrieves the raw text)
+            let explanation: String = Html::parse_fragment(&self.explanation).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
+
+            let mut cutoff = explanation.len().min(Self::SHORT_EXPLANATION_LENGTH);
+
+            while !explanation.is_char_boundary(cutoff) {
+                cutoff -= 1;
+            }
+
+            s.push_str(&explanation[..cutoff]);
+        }
+
+        s
+    }
+
+    pub fn to_full_string(&self) -> String {
+        if let Some(prepend_word) = &self.prepend_word {
+            eprintln!("prepend_word: {}", prepend_word);
+        }
+
+        let mut s = self.to_very_short_string();
+
         s.push('\n');
         {
             // TODO interpret different classes appropriately (this rn just ignores all html tags and just retrieves the raw text)
@@ -189,11 +222,67 @@ impl SprotinWord {
     }
 }
 
-pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_inflections: bool, search_descriptions: bool, skip_other_dictionaries_results: bool, skip_similar_words: bool) -> Result<MsgBunch, u16> {
+pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_inflections: bool, search_descriptions: bool, skip_other_dictionaries_results: bool, skip_similar_words: bool) -> Result<SprotinResponse, u16> {
     let res = reqwest_get(&format!("https://sprotin.fo/dictionary_search_json.php?DictionaryId={}&DictionaryPage={}&SearchFor={}&SearchInflections={}&SearchDescriptions={}&Group={}&SkipOtherDictionariesResults={}&SkipSimilarWords={}",
         dictionary_id, dictionary_page, search_for, search_inflections as u8, search_descriptions as u8, "", skip_other_dictionaries_results as u8, skip_similar_words as u8)).unwrap();
 
     if res.status().is_success() {
+        Ok(from_reader(res).unwrap())
+    } else {
+        Err(res.status().as_u16())
+    }
+}
+
+impl SprotinResponse {
+    pub fn word(self, word_nr: NonZeroUsize) -> MsgBunch {
+        let mut msg_bunch = MsgBunch::new();
+
+        msg_bunch.add_string(&self.words[word_nr.get()-1].to_full_string());
+
+        msg_bunch
+    }
+    pub fn summary(self) -> MsgBunch {
+        let SprotinResponse {
+            message,
+            total,
+            from,
+            to,
+            time,
+            mut words,
+            single_word,
+            related_words,
+            similar_words,
+            page,
+            ..
+        } = self;
+
+        if !related_words.is_empty() || !similar_words.is_empty() {
+            dbg!((related_words, similar_words));
+        }
+
+        let mut msg_bunch = MsgBunch::new();
+
+        if let Some(message) = &message {
+            msg_bunch.add_string("Message: ").add_string(message).add_string("\n");
+        }
+        msg_bunch.add_string(&format!("Síða {}. Vísir úrslit {} - {} av {} ({:.3} sekund)\n", page, from, to, total, time));
+        if let Some(single_word) = single_word {
+            msg_bunch
+                .add_string("Einfalt orð: ")
+                .add_string(&single_word.to_full_string())
+                .add_string("\n");
+        }
+        // Only show 50
+        if words.len() > 50 {
+            words.resize_with(50, || unreachable!());
+        }
+        for (i, word) in (1..).zip(words.into_iter()) {
+            msg_bunch.add_string(&format!("{}. {}\n", i, word.to_short_string()));
+        }
+
+        msg_bunch
+    }
+    pub fn full_summary(self) -> MsgBunch {
         let SprotinResponse {
             message,
             total,
@@ -206,7 +295,7 @@ pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_
             similar_words,
             page,
             ..
-        } = from_reader(res).unwrap();
+        } = self;
 
         if !related_words.is_empty() || !similar_words.is_empty() {
             dbg!((related_words, similar_words));
@@ -217,22 +306,17 @@ pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_
         if let Some(message) = &message {
             msg_bunch.add_string("Message: ").add_string(message).add_string("\n");
         }
-        msg_bunch.add_string(&format!("Vísir úrslit {} - {} av {} ({:.3} sekund)\n", from, to, total, time));
+        msg_bunch.add_string(&format!("Síða {}. Vísir úrslit {} - {} av {} ({:.3} sekund)\n", page, from, to, total, time));
         if let Some(single_word) = single_word {
             msg_bunch
                 .add_string("Einfalt orð: ")
-                .add_string(&single_word.tos())
+                .add_string(&single_word.to_full_string())
                 .add_string("\n");
         }
         for word in words {
-            msg_bunch.add_string("\n").add_string(&word.tos()).add_string("\n");
+            msg_bunch.add_string("\n").add_string(&word.to_full_string()).add_string("\n");
         }
 
-
-        msg_bunch.add_string("\n").add_string("Síða ").add_string(&format!("{}", page));
-
-        Ok(msg_bunch)
-    } else {
-        Err(res.status().as_u16())
+        msg_bunch
     }
 }
