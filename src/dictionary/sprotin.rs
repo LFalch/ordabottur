@@ -233,6 +233,34 @@ pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_
     }
 }
 
+fn dictionary_name(i: u32) -> &'static str {
+    match i {
+        1 => "FØ-FØ",
+        2 => "FØ-EN",
+        3 => "EN-FØ",
+        4 => "FØ-DA",
+        5 => "DA-FØ",
+        21 => "DA-FØ2",
+        6 => "FØ-TÝ",
+        7 => "TÝ-FØ",
+        10 => "FØ-SP",
+        20 => "SP-FØ",
+        30 => "GR-FØ",
+        9 => "FR-FØ",
+        11 => "FØ-IT",
+        12 => "RU-FØ",
+        24 => "FØ-KI",
+        26 => "KI-FØ",
+        15 => "SAM",
+        25 => "NAVN",
+        22 => "ALFR",
+        23 => "TILT",
+        13 => "YRK",
+        32 => "BUSK",
+        _ => panic!("no such dictionary"),
+    }
+}
+
 impl SprotinResponse {
     pub fn word(self, word_nr: NonZeroUsize) -> MsgBunch {
         let mut msg_bunch = MsgBunch::new();
@@ -253,6 +281,7 @@ impl SprotinResponse {
             related_words,
             similar_words,
             page,
+            dictionaries_results,
             ..
         } = self;
 
@@ -272,6 +301,12 @@ impl SprotinResponse {
                 .add_string(&single_word.to_full_string())
                 .add_string("\n");
         }
+
+        for result in dictionaries_results {
+            msg_bunch.add_string("**").add_string(dictionary_name(result.id)).add_string("** ").add_string(&format!("{}", result.results)).add_string(" ");
+        }
+        msg_bunch.add_string("\n\n");
+
         // Only show 50
         if words.len() > 50 {
             words.resize_with(50, || unreachable!());
