@@ -2,7 +2,6 @@ use std::num::NonZeroUsize;
 use reqwest::{
     blocking::get as reqwest_get
 };
-use serde_json::from_reader;
 use serde::{Deserialize, Deserializer};
 use scraper::Html;
 
@@ -21,7 +20,7 @@ pub struct SprotinResponse {
     words: Vec<SprotinWord>,
     single_word: Option<SprotinWord>,
     related_words: Vec<()>,
-    groups: Vec<()>,
+    groups: Vec<SprotinGroup>,
     dictionary: SprotinDictionary,
     dictionaries_results: Vec<DictionaryResults>,
     similar_words: Vec<()>,
@@ -63,6 +62,13 @@ struct CountryWithSearches {
     country: String,
     quantity: u64,
     percent: f32,
+}
+#[derive(Debug, Clone, Deserialize)]
+struct SprotinGroup {
+    id: u16,
+    title: String,
+    // seems to be a number in that string though
+    words: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -121,7 +127,7 @@ struct SprotinWord {
     phonetic: Option<String>,
     // Type should be Date it's in yyyy-mm-dd hh:mm:ss
     date: String,
-    groups: Vec<()>,
+    groups: Vec<SprotinGroup>,
     short_inflection: Option<String>
 }
 
@@ -227,12 +233,41 @@ impl SprotinWord {
     }
 }
 
+
+#[cfg(not(feature = "from_res_error_resolve"))]
+#[inline(always)]
+fn from_res(res: reqwest::blocking::Response) -> SprotinResponse {
+    res.json().unwrap()
+}
+#[cfg(feature = "from_res_error_resolve")]
+fn from_res(res: reqwest::blocking::Response) -> SprotinResponse {
+    let s = res.text().unwrap();
+
+    let pretty = {
+        let json: serde_json::Value = serde_json::from_str(&s).unwrap();
+
+        serde_json::ser::to_string_pretty(&json).unwrap()
+    };
+
+    match serde_json::from_str(&pretty) {
+        Ok(j) => j,
+        Err(e) => {
+            use std::io::Write;
+
+            let mut file = std::fs::File::create("pretty.json").unwrap();
+            file.write_all(pretty.as_bytes()).unwrap();
+
+            Err(e).unwrap()
+        }
+    }
+}
+
 pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_inflections: bool, search_descriptions: bool, skip_other_dictionaries_results: bool, skip_similar_words: bool) -> Result<SprotinResponse, u16> {
     let res = reqwest_get(&format!("https://sprotin.fo/dictionary_search_json.php?DictionaryId={}&DictionaryPage={}&SearchFor={}&SearchInflections={}&SearchDescriptions={}&Group={}&SkipOtherDictionariesResults={}&SkipSimilarWords={}",
         dictionary_id, dictionary_page, search_for, search_inflections as u8, search_descriptions as u8, "", skip_other_dictionaries_results as u8, skip_similar_words as u8)).unwrap();
 
     if res.status().is_success() {
-        Ok(from_reader(res).unwrap())
+        Ok(from_res(res))
     } else {
         Err(res.status().as_u16())
     }
