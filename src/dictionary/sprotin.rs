@@ -168,7 +168,7 @@ impl SprotinWord {
         s
     }
 
-    const SHORT_EXPLANATION_LENGTH: usize = 140;
+    const SHORT_EXPLANATION_LENGTH: usize = 138;
 
     pub fn to_short_string(&self) -> String {
         let mut s = self.to_very_short_string();
@@ -179,13 +179,18 @@ impl SprotinWord {
             // TODO interpret different classes appropriately (this rn just ignores all html tags and just retrieves the raw text)
             let explanation: String = Html::parse_fragment(&self.explanation).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
 
-            let mut cutoff = explanation.len().min(Self::SHORT_EXPLANATION_LENGTH);
-
-            while !explanation.is_char_boundary(cutoff) {
-                cutoff -= 1;
+            if explanation.len() >= Self::SHORT_EXPLANATION_LENGTH {
+                let mut cutoff = Self::SHORT_EXPLANATION_LENGTH;
+                
+                while !explanation.is_char_boundary(cutoff) {
+                    cutoff -= 1;
+                }
+    
+                s.push_str(&explanation[..cutoff]);
+                s.push('…');
+            } else {
+                s.push_str(&explanation);
             }
-
-            s.push_str(&explanation[..cutoff]);
         }
 
         s
@@ -302,7 +307,7 @@ impl SprotinResponse {
                 .add_string("\n");
         }
 
-        for result in dictionaries_results {
+        for result in dictionaries_results.into_iter().filter(|r| r.results > 0) {
             msg_bunch.add_string("**").add_string(dictionary_name(result.id)).add_string("** ").add_string(&format!("{}", result.results)).add_string(" ");
         }
         msg_bunch.add_string("\n\n");
