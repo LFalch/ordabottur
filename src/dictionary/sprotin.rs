@@ -231,10 +231,9 @@ impl SprotinWord {
         }
 
         s.push('\n');
-        s.push_str("Bendingar: ");
-        for form in &self.inflected_form {
-            s.push_str(&form);
-            s.push(' ');
+        if !self.inflected_form.is_empty() {
+            s.push_str(&self.inflection_table());
+            s.push('\n');
         }
 
         if let Some(grammar_comment) = &self.grammar_comment {
@@ -243,6 +242,86 @@ impl SprotinWord {
         }
 
         s
+    }
+
+    // TODO kinda hacky, but done after the JS making the tables on Sprotin itself
+    pub fn inflection_table(&self) -> String {
+        let SprotinWord{inflected_form, ..} = self;
+
+        match &**inflected_form {
+            // verb
+            [infinitive, present_3p, past_sg, past_pl, supine, past_part] => {
+                const SG_COLUMN_TITLE: &str = "eintal/sg.";
+                let sg_column_width = [present_3p, past_sg].iter().map(|f| f.chars().count()).max().unwrap().max(SG_COLUMN_TITLE.chars().count());
+                const PL_COLUMN_TITLE: &str = "fleirtal/pl.";
+                let pl_column_width = [infinitive, past_pl].iter().map(|f| f.chars().count()).max().unwrap().max(PL_COLUMN_TITLE.chars().count());
+
+                format!(r"```
+navnháttur/infinitive                            | {:sg$} |
+lýsingarháttur í tátíð / supine                  | {:sg$} |
+  Bendingar í tíð / conjugations                 | {:sg$} | {:pl$} |
+3. persónur í nútid / 3rd sg. present            | {:sg$} | {:pl$} |
+eintal   í tátíð / sg. past                      | {:sg$} | {:pl$} |
+lýsingarháttur í tátíð, k. hvørfall / past part. | {:sg$} | {:pl$} |
+```", infinitive, supine, SG_COLUMN_TITLE, PL_COLUMN_TITLE, present_3p, infinitive, past_sg, past_pl, past_part, "", sg = sg_column_width, pl = pl_column_width)
+            }
+            // noun
+            [nom_sg, acc_sg, dat_sg, gen_sg, nom_pl, acc_pl, dat_pl, gen_pl
+            ,nom_sd, acc_sd, dat_sd, gen_sd, nom_pd, acc_pd, dat_pd, gen_pd] => {
+                const INDEFINITE_COLUMN_TITLE: &str = "óbundið / indef.";
+                let i_column = vec![nom_sg, acc_sg, dat_sg, gen_sg, nom_pl, acc_pl, dat_pl, gen_pl];
+                let i_column_width = i_column.iter().map(|f| f.chars().count()).max().unwrap().max(INDEFINITE_COLUMN_TITLE.chars().count());
+                let mut i_column = i_column.into_iter();
+                const DEFINITE_COLUMN_TITLE: &str = "bundið / def.";
+                let d_column = vec![nom_sd, acc_sd, dat_sd, gen_sd, nom_pd, acc_pd, dat_pd, gen_pd];
+                let d_column_width = d_column.iter().map(|f| f.chars().count()).max().unwrap().max(DEFINITE_COLUMN_TITLE.chars().count());
+                let mut d_column = d_column.into_iter();
+
+                "```\n".to_owned() +
+                &format!("  eintal/sg.    | {:2$} | {:3$} |\n", INDEFINITE_COLUMN_TITLE, DEFINITE_COLUMN_TITLE, i_column_width, d_column_width) +
+                &format!("hvørfall/nom    | {:2$} | {:3$} |\n", i_column.next().unwrap(), d_column.next().unwrap(), i_column_width, d_column_width) +
+                &format!("hvønnfall/acc   | {:2$} | {:3$} |\n", i_column.next().unwrap(), d_column.next().unwrap(), i_column_width, d_column_width) +
+                &format!("hvørjumfall/dat | {:2$} | {:3$} |\n", i_column.next().unwrap(), d_column.next().unwrap(), i_column_width, d_column_width) +
+                &format!("hvørsfall/gen   | {:2$} | {:3$} |\n", i_column.next().unwrap(), d_column.next().unwrap(), i_column_width, d_column_width) +
+                         "  fleirtal/pl.\n" +
+                &format!("hvørfall/nom    | {:2$} | {:3$} |\n", i_column.next().unwrap(), d_column.next().unwrap(), i_column_width, d_column_width) +
+                &format!("hvønnfall/acc   | {:2$} | {:3$} |\n", i_column.next().unwrap(), d_column.next().unwrap(), i_column_width, d_column_width) +
+                &format!("hvørjumfall/dat | {:2$} | {:3$} |\n", i_column.next().unwrap(), d_column.next().unwrap(), i_column_width, d_column_width) +
+                &format!("hvørsfall/gen   | {:2$} | {:3$} |\n", i_column.next().unwrap(), d_column.next().unwrap(), i_column_width, d_column_width) +
+                "```"
+            }
+            // adjective
+            [m_nom_sg, m_acc_sg, m_dat_sg, m_gen_sg, m_nom_pl, m_acc_pl, m_dat_pl, m_gen_pl
+            ,f_nom_sg, f_acc_sg, f_dat_sg, f_gen_sg, f_nom_pl, f_acc_pl, f_dat_pl, f_gen_pl
+            ,n_nom_sg, n_acc_sg, n_dat_sg, n_gen_sg, n_nom_pl, n_acc_pl, n_dat_pl, n_gen_pl] => {
+                const M_COLUMN_TITLE: &str = "masc/k";
+                let m_column = vec![m_nom_sg, m_acc_sg, m_dat_sg, m_gen_sg, m_nom_pl, m_acc_pl, m_dat_pl, m_gen_pl];
+                let m_column_width = m_column.iter().map(|f| f.chars().count()).max().unwrap().max(M_COLUMN_TITLE.chars().count());
+                let mut m_column = m_column.into_iter();
+                const F_COLUMN_TITLE: &str = "fem/kv";
+                let f_column = vec![f_nom_sg, f_acc_sg, f_dat_sg, f_gen_sg, f_nom_pl, f_acc_pl, f_dat_pl, f_gen_pl];
+                let f_column_width = f_column.iter().map(|f| f.chars().count()).max().unwrap().max(F_COLUMN_TITLE.chars().count());
+                let mut f_column = f_column.into_iter();
+                const N_COLUMN_TITLE: &str = "neut/h";
+                let n_column = vec![n_nom_sg, n_acc_sg, n_dat_sg, n_gen_sg, n_nom_pl, n_acc_pl, n_dat_pl, n_gen_pl];
+                let n_column_width = n_column.iter().map(|f| f.chars().count()).max().unwrap().max(N_COLUMN_TITLE.chars().count());
+                let mut n_column = n_column.into_iter();
+
+                "```\n".to_owned() +
+                &format!("  eintal/sg     | {:3$} | {:4$} | {:5$} |\n", M_COLUMN_TITLE, F_COLUMN_TITLE, N_COLUMN_TITLE, m_column_width, f_column_width, n_column_width) +
+                &format!("hvørfall/nom    | {:3$} | {:4$} | {:5$} |\n", m_column.next().unwrap(), f_column.next().unwrap(), n_column.next().unwrap(), m_column_width, f_column_width, n_column_width) +
+                &format!("hvønnfall/acc   | {:3$} | {:4$} | {:5$} |\n", m_column.next().unwrap(), f_column.next().unwrap(), n_column.next().unwrap(), m_column_width, f_column_width, n_column_width) +
+                &format!("hvørjumfall/dat | {:3$} | {:4$} | {:5$} |\n", m_column.next().unwrap(), f_column.next().unwrap(), n_column.next().unwrap(), m_column_width, f_column_width, n_column_width) +
+                &format!("hvørsfall/gen   | {:3$} | {:4$} | {:5$} |\n", m_column.next().unwrap(), f_column.next().unwrap(), n_column.next().unwrap(), m_column_width, f_column_width, n_column_width) +
+                         "  fleirtal/pl.\n" +
+                &format!("hvørfall/nom    | {:3$} | {:4$} | {:5$} |\n", m_column.next().unwrap(), f_column.next().unwrap(), n_column.next().unwrap(), m_column_width, f_column_width, n_column_width) +
+                &format!("hvønnfall/acc   | {:3$} | {:4$} | {:5$} |\n", m_column.next().unwrap(), f_column.next().unwrap(), n_column.next().unwrap(), m_column_width, f_column_width, n_column_width) +
+                &format!("hvørjumfall/dat | {:3$} | {:4$} | {:5$} |\n", m_column.next().unwrap(), f_column.next().unwrap(), n_column.next().unwrap(), m_column_width, f_column_width, n_column_width) +
+                &format!("hvørsfall/gen   | {:3$} | {:4$} | {:5$} |\n", m_column.next().unwrap(), f_column.next().unwrap(), n_column.next().unwrap(), m_column_width, f_column_width, n_column_width) +
+                "```"
+            }
+            f => format!("Unknown inflectional paradigm:\n{}", f.join(", ")),
+        }
     }
 }
 
