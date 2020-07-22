@@ -11,7 +11,7 @@ use crate::util::MsgBunch;
 pub struct SprotinResponse {
     search_inflections: u8,
     search_description: u8,
-    status: String,
+    status: ResponseStatus,
     message: Option<String>,
     total: u32,
     from: u32,
@@ -23,13 +23,20 @@ pub struct SprotinResponse {
     groups: Vec<SprotinGroup>,
     dictionary: SprotinDictionary,
     dictionaries_results: Vec<DictionaryResults>,
-    similar_words: Vec<()>,
+    similar_words: Vec<SimilarWord>,
     page: u16,
     searchfor: String,
     new_words: NewWordsStatus,
     popular_words: Vec<PopularWord>,
     searches_by_country: Vec<CountryWithSearches>,
     words_from_same_groups: Vec<()>
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum ResponseStatus {
+    Success,
+    NotFound
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -55,6 +62,12 @@ struct NewWord {
 struct PopularWord {
     search_word: String,
     quantity: u32,
+}
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct SimilarWord {
+    search_word: String,
+    difference: u32,
 }
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -262,9 +275,14 @@ fn from_res(res: reqwest::blocking::Response) -> SprotinResponse {
     }
 }
 
-pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_inflections: bool, search_descriptions: bool, skip_other_dictionaries_results: bool, skip_similar_words: bool) -> Result<SprotinResponse, u16> {
+pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_inflections: bool, search_descriptions: bool) -> Result<SprotinResponse, u16> {
+    // This one doesn't seem to make a difference
+    const SKIP_OTHER_DICTIONARIES_RESULTS: bool = true;
+    // This is one gives us similar word suggestions if no results were found
+    const SKIP_SIMILAR_WORDS: bool = false;
+
     let res = reqwest_get(&format!("https://sprotin.fo/dictionary_search_json.php?DictionaryId={}&DictionaryPage={}&SearchFor={}&SearchInflections={}&SearchDescriptions={}&Group={}&SkipOtherDictionariesResults={}&SkipSimilarWords={}",
-        dictionary_id, dictionary_page, search_for, search_inflections as u8, search_descriptions as u8, "", skip_other_dictionaries_results as u8, skip_similar_words as u8)).unwrap();
+        dictionary_id, dictionary_page, search_for, search_inflections as u8, search_descriptions as u8, "", SKIP_OTHER_DICTIONARIES_RESULTS as u8, SKIP_SIMILAR_WORDS as u8)).unwrap();
 
     if res.status().is_success() {
         Ok(from_res(res))
@@ -302,16 +320,17 @@ fn dictionary_name(i: u32) -> &'static str {
 }
 
 impl SprotinResponse {
-    pub fn word(self, word_nr: NonZeroUsize) -> MsgBunch {
+    pub fn word(&self, word_nr: NonZeroUsize) -> Option<MsgBunch> {
         let mut msg_bunch = MsgBunch::new();
 
-        msg_bunch.add_string(&self.words[word_nr.get()-1].to_full_string());
+        msg_bunch.add_string(&self.words.get(word_nr.get()-1)?.to_full_string());
 
-        msg_bunch
+        Some(msg_bunch)
     }
     pub fn summary(self) -> MsgBunch {
         let SprotinResponse {
             message,
+            status,
             total,
             from,
             to,
@@ -324,74 +343,50 @@ impl SprotinResponse {
             dictionaries_results,
             ..
         } = self;
-
-        if !related_words.is_empty() || !similar_words.is_empty() {
-            dbg!((related_words, similar_words));
+        
+        if !related_words.is_empty() {
+            dbg!(related_words);
+        }
+        if single_word.is_some() {
+            dbg!(single_word);
         }
 
         let mut msg_bunch = MsgBunch::new();
 
         if let Some(message) = &message {
-            msg_bunch.add_string("Message: ").add_string(message).add_string("\n");
+            msg_bunch.add_string("__").add_string(message).add_string("__\n");
         }
         msg_bunch.add_string(&format!("Síða {}. Vísir úrslit {} - {} av {} ({:.3} sekund)\n", page, from, to, total, time));
-        if let Some(single_word) = single_word {
-            msg_bunch
-                .add_string("Einfalt orð: ")
-                .add_string(&single_word.to_full_string())
-                .add_string("\n");
-        }
-
         for result in dictionaries_results.into_iter().filter(|r| r.results > 0) {
             msg_bunch.add_string("**").add_string(dictionary_name(result.id)).add_string("** ").add_string(&format!("{}", result.results)).add_string(" ");
         }
         msg_bunch.add_string("\n\n");
 
-        // Only show 50
-        if words.len() > 50 {
-            words.resize_with(50, || unreachable!());
-        }
-        for (i, word) in (1..).zip(words.into_iter()) {
-            msg_bunch.add_string(&format!("{}. {}\n", i, word.to_short_string()));
-        }
+        match status {
+            ResponseStatus::NotFound => {
+                if !similar_words.is_empty() {
+                    let similar_words: Vec<_> = similar_words.into_iter().map(|w| format!("_{}_", w.search_word)).collect();
 
-        msg_bunch
-    }
-    pub fn full_summary(self) -> MsgBunch {
-        let SprotinResponse {
-            message,
-            total,
-            from,
-            to,
-            time,
-            words,
-            single_word,
-            related_words,
-            similar_words,
-            page,
-            ..
-        } = self;
-
-        if !related_words.is_empty() || !similar_words.is_empty() {
-            dbg!((related_words, similar_words));
+                    msg_bunch.add_string("Meinti tú: ").add_string(&similar_words.join(", "));
+                }
+            },
+            ResponseStatus::Success => {
+                match &*words {
+                    [word] => {
+                        msg_bunch.add_string("1. ").add_string(&word.to_full_string());
+                    }
+                    _ => {
+                        // Only show 50
+                        if words.len() > 50 {
+                            words.resize_with(50, || unreachable!());
+                        }
+                        for (i, word) in (1..).zip(words.into_iter()) {
+                            msg_bunch.add_string(&format!("{}. {}\n", i, word.to_short_string()));
+                        }
+                    }
+                }
+            }
         }
-
-        let mut msg_bunch = MsgBunch::new();
-
-        if let Some(message) = &message {
-            msg_bunch.add_string("Message: ").add_string(message).add_string("\n");
-        }
-        msg_bunch.add_string(&format!("Síða {}. Vísir úrslit {} - {} av {} ({:.3} sekund)\n", page, from, to, total, time));
-        if let Some(single_word) = single_word {
-            msg_bunch
-                .add_string("Einfalt orð: ")
-                .add_string(&single_word.to_full_string())
-                .add_string("\n");
-        }
-        for word in words {
-            msg_bunch.add_string("\n").add_string(&word.to_full_string()).add_string("\n");
-        }
-
         msg_bunch
     }
 }

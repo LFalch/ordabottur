@@ -213,14 +213,12 @@ impl FromStr for DictionaryId {
 fn sprotin(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let dict = args.single::<DictionaryId>().unwrap_or(DictionaryId(1));
 
-    match fo_search(dict.0, 1, &args.single_quoted::<String>()?, false, false, true, true) {
+    match fo_search(dict.0, 1, &args.single_quoted::<String>()?, false, false) {
         Ok(result) => {
             let msg_bunch;
 
             if let Ok(id) = args.single() {
-                msg_bunch = result.word(id)
-            } else if let Ok("full") = args.single::<String>().as_ref().map(|s| &**s) {
-                msg_bunch = result.full_summary()
+                msg_bunch = result.word(id).unwrap_or_else(|| result.summary())
             } else {
                 msg_bunch = result.summary()
             }
