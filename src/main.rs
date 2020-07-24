@@ -61,9 +61,8 @@ fn gm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 .add_string(&results_msg)
                 .add_string("\n")
                 .entries(entries);
-            let msg_bunch = mmb.build();
 
-            for msg_body in msg_bunch.messages {
+            for msg_body in mmb.build().messages {
                 msg.channel_id.say(&ctx, msg_body)?;
             }
         }

@@ -102,8 +102,7 @@ impl MsgBunchBuilder {
             self.chars_num = new_cur_msg_size;
         } else {
             self.inner.messages.last_mut().unwrap().push_str(string_to_add);
-            self.inner.messages.push(String::with_capacity(MSG_LIMIT));
-            self.chars_num = 0;
+            self.chars_num += string_to_add_size;
         }
         self
     }
@@ -164,7 +163,7 @@ impl MsgBunchBuilder {
 
     pub fn add_lines<S: AsRef<str>>(&mut self, lines: S) -> &mut Self {
         for line in lines.as_ref().lines() {
-            self.begin_section().add_string(line).end_section();
+            self.begin_section().add_string(line).add_string("\n").end_section();
         }
 
         self
