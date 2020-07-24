@@ -39,7 +39,7 @@ pub mod util;
 
 use dictionary::uio::{sa_entries, sa_entry, gm_entries, SetelArkivOptions};
 use dictionary::sprotin::search as fo_search;
-use util::MsgBunch;
+use util::MsgBunchBuilder;
 
 #[command]
 #[description = "Set the status of the bot to be playing the set game"]
@@ -55,12 +55,13 @@ fn setgame(ctx: &mut Context, _msg: &Message, args: Args) -> CommandResult {
 fn gm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     match gm_entries(args.message(), 10) {
         Ok((results_msg, entries)) => {
-            let mut msg_bunch = MsgBunch::new();
-            
-            msg_bunch
+            let mut mmb = MsgBunchBuilder::new();
+
+            mmb
                 .add_string(&results_msg)
                 .add_string("\n")
                 .entries(entries);
+            let msg_bunch = mmb.build();
 
             for msg_body in msg_bunch.messages {
                 msg.channel_id.say(&ctx, msg_body)?;
@@ -109,12 +110,13 @@ fn sa(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     match sa_entries(oppslag, 35, options) {
         Ok((results_msg, entries)) => {
-            let mut msg_bunch = MsgBunch::new();
-            
-            msg_bunch
+            let mut mmb = MsgBunchBuilder::new();
+
+            mmb
                 .add_string(&results_msg)
                 .add_string("\n")
                 .entries(entries);
+            let msg_bunch = mmb.build();
 
             for msg_body in msg_bunch.messages {
                 msg.channel_id.say(&ctx, msg_body)?;

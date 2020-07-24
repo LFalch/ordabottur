@@ -42,55 +42,140 @@ impl Display for Entry {
 
 const MSG_LIMIT: usize = 2000;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MsgBunch {
     pub messages: Vec<String>,
 }
 
 impl MsgBunch {
-    pub fn new() -> Self {
+    fn new() -> Self {
         MsgBunch {
             messages: vec![String::with_capacity(MSG_LIMIT)]
         }
     }
-    pub fn add_string(&mut self, mut s: &str) -> &mut Self {
-        let mut len = self.messages.last().unwrap().len();
+}
 
-        if len + s.len() > MSG_LIMIT {
-            while len + s.len() > MSG_LIMIT {
-                let mut split_index = MSG_LIMIT - len;
+#[derive(Debug)]
+pub struct MsgBunchBuilder {
+    inner: MsgBunch,
+    chars_num: usize, 
+    no_split_section: Option<(String, usize)>,
+}
 
-                while !s.is_char_boundary(split_index) {
-                    split_index -= 1;
+impl Default for MsgBunchBuilder {
+    #[inline(always)]
+    fn default() -> Self {
+        MsgBunchBuilder::new()
+    }
+}
+
+impl MsgBunchBuilder {
+    #[inline]
+    pub fn new() -> Self {
+        MsgBunchBuilder {
+            inner: MsgBunch::new(),
+            chars_num: 0,
+            no_split_section: None,
+        }
+    }
+
+    pub fn add_string<S: AsRef<str>>(&mut self, s: S) -> &mut Self {
+        let string_to_add = s.as_ref();
+        let string_to_add_size = string_to_add.chars().count();
+
+        if let Some((no_split_section, size)) = &mut self.no_split_section {
+            *size += string_to_add_size;
+            no_split_section.push_str(string_to_add);
+        } else if self.chars_num + string_to_add_size > MSG_LIMIT {
+            let cur_msg = self.inner.messages.last_mut().unwrap();
+            let cur_msg_size = cur_msg.chars().count();
+
+            let (s, index) = (cur_msg_size+1..).zip(string_to_add.char_indices()).map(|(s, (i, _))| (s, i)).nth(MSG_LIMIT-cur_msg_size).unwrap();
+            assert_eq!(s, MSG_LIMIT);
+
+            cur_msg.push_str(&string_to_add[..index]);
+
+            let new_cur_msg = string_to_add[index..].to_owned();
+            let new_cur_msg_size = new_cur_msg.chars().count();
+
+            self.inner.messages.push(string_to_add[index..].to_owned());
+            self.chars_num = new_cur_msg_size;
+        } else {
+            self.inner.messages.last_mut().unwrap().push_str(string_to_add);
+            self.inner.messages.push(String::with_capacity(MSG_LIMIT));
+            self.chars_num = 0;
+        }
+        self
+    }
+
+    pub fn begin_section(&mut self) -> &mut Self {
+        if self.no_split_section.is_none() {
+            self.no_split_section = Some((String::new(), 0));
+        }
+        self
+    }
+
+    #[inline]
+    pub fn is_in_section(&self) -> bool {
+        self.no_split_section.is_some()
+    }
+
+    #[inline]
+    pub fn end_section(&mut self) -> &mut Self {
+        self.end_section_with(|c| match c {
+            ' ' | ';' | ',' | '.' | ':' | '-' => true,
+            _ => false
+        })
+    }
+
+    pub fn end_section_with<F: FnMut(char) -> bool>(&mut self, mut f: F) -> &mut Self {
+        if let Some((mut no_split_section, size)) = self.no_split_section.take() {
+            if self.chars_num + size > MSG_LIMIT {
+                self.chars_num = size;
+
+                let no_split_section_size = no_split_section.chars().count();
+
+
+                // If the section is longer than the msg limit, we have to split it anyway
+                // using the passed function to check charactes that should allow splits
+                if no_split_section_size > MSG_LIMIT {
+                    let (index, _) = no_split_section.char_indices().rev().skip(no_split_section_size-MSG_LIMIT).find(|(_, c)| f(*c)).unwrap();
+
+                    let new_cur_msg = no_split_section.split_off(index);
+
+                    self.inner.messages.push(no_split_section);
+                    self.inner.messages.push(new_cur_msg);
+                } else {
+                    self.inner.messages.push(no_split_section);
                 }
-
-                {
-                    let last_message = self.messages.last_mut().unwrap();
-                    last_message.push_str(&s[..split_index]);
-                    debug_assert!(last_message.len() <= MSG_LIMIT);
-                }
-                self.messages.push(String::with_capacity(MSG_LIMIT));
-
-                len = 0;
-                s = &s[split_index..];
+            } else {
+                self.chars_num += size;
+                self.inner.messages.last_mut().unwrap().push_str(&no_split_section)
             }
         }
+        self
+    }
 
-        let last_message = self.messages.last_mut().unwrap();
-        last_message.push_str(s);
+    pub fn add_lines<S: AsRef<str>>(&mut self, lines: S) -> &mut Self {
+        for line in lines.as_ref().lines() {
+            self.begin_section().add_string(line).end_section();
+        }
 
         self
     }
+
     pub fn entries(&mut self, entries: Vec<Entry>) -> &mut Self {
-        self.messages.push(String::with_capacity(MSG_LIMIT));
-
         for entry in entries {
-            let entry_text = format!("{}\n", entry);
-
-            self.add_string(&entry_text);
+            self.add_lines(entry.to_string());
         }
 
         self
+    }
+
+    #[inline]
+    pub fn build(mut self) -> MsgBunch {
+        self.end_section();
+        self.inner
     }
 }
 

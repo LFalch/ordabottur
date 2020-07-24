@@ -5,7 +5,7 @@ use reqwest::{
 use serde::{Deserialize, Deserializer};
 use scraper::Html;
 
-use crate::util::MsgBunch;
+use crate::util::{MsgBunchBuilder, MsgBunch};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SprotinResponse {
@@ -215,33 +215,28 @@ impl SprotinWord {
         s
     }
 
-    pub fn to_full_string(&self) -> String {
+    pub fn to_full_string(&self, mmb: &mut MsgBunchBuilder) {
+        mmb.begin_section();
         if let Some(prepend_word) = &self.prepend_word {
             eprintln!("prepend_word: {}", prepend_word);
         }
 
-        let mut s = self.to_very_short_string();
+        mmb.add_string(self.to_very_short_string()).add_string("\n").end_section();
 
-        s.push('\n');
         {
             // TODO interpret different classes appropriately (this rn just ignores all html tags and just retrieves the raw text)
             let explanation: String = Html::parse_fragment(&self.explanation).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
 
-            s.push_str(&explanation);
+            mmb.add_lines(explanation);
         }
 
-        s.push('\n');
         if !self.inflected_form.is_empty() {
-            s.push_str(&self.inflection_table());
-            s.push('\n');
+            mmb.begin_section().add_string(&self.inflection_table()).add_string("\n").end_section();
         }
 
         if let Some(grammar_comment) = &self.grammar_comment {
-            s.push('\n');
-            s.push_str(&grammar_comment);
+            mmb.begin_section().add_string("\n").add_string(&grammar_comment).end_section();
         }
-
-        s
     }
 
     // TODO kinda hacky, but done after the JS making the tables on Sprotin itself
@@ -400,11 +395,11 @@ fn dictionary_name(i: u32) -> &'static str {
 
 impl SprotinResponse {
     pub fn word(&self, word_nr: NonZeroUsize) -> Option<MsgBunch> {
-        let mut msg_bunch = MsgBunch::new();
+        let mut mmb = MsgBunchBuilder::new();
 
-        msg_bunch.add_string(&self.words.get(word_nr.get()-1)?.to_full_string());
+        self.words.get(word_nr.get()-1)?.to_full_string(&mut mmb);
 
-        Some(msg_bunch)
+        Some(mmb.build())
     }
     pub fn summary(self) -> MsgBunch {
         let SprotinResponse {
@@ -430,29 +425,31 @@ impl SprotinResponse {
             dbg!(single_word);
         }
 
-        let mut msg_bunch = MsgBunch::new();
+        let mut mmb = MsgBunchBuilder::new();
+
+        mmb.begin_section();
 
         if let Some(message) = &message {
-            msg_bunch.add_string("__").add_string(message).add_string("__\n");
+            mmb.add_string("__").add_string(message).add_string("__\n").end_section().begin_section();
         }
-        msg_bunch.add_string(&format!("Síða {}. Vísir úrslit {} - {} av {} ({:.3} sekund)\n", page, from, to, total, time));
+        mmb.add_string(&format!("Síða {}. Vísir úrslit {} - {} av {} ({:.3} sekund)\n", page, from, to, total, time)).end_section().begin_section();
         for result in dictionaries_results.into_iter().filter(|r| r.results > 0) {
-            msg_bunch.add_string("**").add_string(dictionary_name(result.id)).add_string("** ").add_string(&format!("{}", result.results)).add_string(" ");
+            mmb.add_string("**").add_string(dictionary_name(result.id)).add_string("** ").add_string(&format!("{}", result.results)).add_string(" ");
         }
-        msg_bunch.add_string("\n\n");
+        mmb.add_string("\n\n").end_section();
 
         match status {
             ResponseStatus::NotFound => {
                 if !similar_words.is_empty() {
                     let similar_words: Vec<_> = similar_words.into_iter().map(|w| format!("_{}_", w.search_word)).collect();
 
-                    msg_bunch.add_string("Meinti tú: ").add_string(&similar_words.join(", "));
+                    mmb.begin_section().add_string("Meinti tú: ").add_string(&similar_words.join(", ")).end_section();
                 }
             },
             ResponseStatus::Success => {
                 match &*words {
                     [word] => {
-                        msg_bunch.add_string("1. ").add_string(&word.to_full_string());
+                        word.to_full_string(mmb.begin_section().add_string("1. "));
                     }
                     _ => {
                         // Only show 50
@@ -460,12 +457,12 @@ impl SprotinResponse {
                             words.resize_with(50, || unreachable!());
                         }
                         for (i, word) in (1..).zip(words.into_iter()) {
-                            msg_bunch.add_string(&format!("{}. {}\n", i, word.to_short_string()));
+                            mmb.begin_section().add_string(&format!("{}. {}\n", i, word.to_short_string())).end_section();
                         }
                     }
                 }
             }
         }
-        msg_bunch
+        mmb.build()
     }
 }
