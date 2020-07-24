@@ -91,7 +91,7 @@ impl MsgBunchBuilder {
             let cur_msg_size = cur_msg.chars().count();
 
             let (s, index) = (cur_msg_size+1..).zip(string_to_add.char_indices()).map(|(s, (i, _))| (s, i)).nth(MSG_LIMIT-cur_msg_size).unwrap();
-            assert_eq!(s, MSG_LIMIT);
+            debug_assert_eq!(s, MSG_LIMIT);
 
             cur_msg.push_str(&string_to_add[..index]);
 
@@ -123,7 +123,7 @@ impl MsgBunchBuilder {
     #[inline]
     pub fn end_section(&mut self) -> &mut Self {
         self.end_section_with(|c| match c {
-            ' ' | ';' | ',' | '.' | ':' | '-' => true,
+            ';' | ',' | '.' | '?' | '!' | ')' | ':' | '-' => true,
             _ => false
         })
     }
@@ -133,21 +133,27 @@ impl MsgBunchBuilder {
             if self.chars_num + size > MSG_LIMIT {
                 self.chars_num = size;
 
-                let no_split_section_size = no_split_section.chars().count();
-
+                let mut no_split_section_size = no_split_section.chars().count();
 
                 // If the section is longer than the msg limit, we have to split it anyway
                 // using the passed function to check charactes that should allow splits
-                if no_split_section_size > MSG_LIMIT {
-                    let (index, _) = no_split_section.char_indices().rev().skip(no_split_section_size-MSG_LIMIT).find(|(_, c)| f(*c)).unwrap();
+                while no_split_section_size > MSG_LIMIT {
+                    // take(MSG_LIMIT) so that it'll panic if it doesn't find something to split at before message limit
+                    let (mut index, _) = no_split_section.char_indices().rev().skip(no_split_section_size-MSG_LIMIT).take(MSG_LIMIT).find(|(_, c)| f(*c)).unwrap();
+                    index += 1;
+
+                    while !no_split_section.is_char_boundary(index) {
+                        index += 1;
+                    }
 
                     let new_cur_msg = no_split_section.split_off(index);
 
-                    self.inner.messages.push(no_split_section);
-                    self.inner.messages.push(new_cur_msg);
-                } else {
-                    self.inner.messages.push(no_split_section);
+                    let first_section = std::mem::replace(&mut no_split_section, new_cur_msg);
+                    no_split_section_size = no_split_section.chars().count();
+
+                    self.inner.messages.push(first_section);
                 }
+                self.inner.messages.push(no_split_section);
             } else {
                 self.chars_num += size;
                 self.inner.messages.last_mut().unwrap().push_str(&no_split_section)
