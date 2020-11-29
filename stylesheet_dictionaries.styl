@@ -1,0 +1,777 @@
+@font-face 
+	font-family 'silsipa'
+	src url('/fonts/silsipa.eot')
+	src url('/fonts/silsipa.svg#SILSophiaIPA') format('svg'), url('/fonts/silsipa.eot?#iefix') format('embedded-opentype'), url('/fonts/silsipa.woff') format('woff'), url('/fonts/silsipa.ttf') format('truetype')
+	font-weight bold
+	font-style normal
+
+
+.word_debug
+	background-color #ddffdd
+	padding 10px
+	border 1px solid #999999
+	line-height normal
+	border-radius 5px
+
+
+.dictionary-results--word
+	/*========*
+	 *  OLDS  *
+	 *========*/
+	&.dictionary-results--word--fo-fo_old
+	&.dictionary-results--word--fo-en_old
+		.dictionary_number_bold
+			font-weight bold
+			color blue
+
+
+	/*=========*
+	 *  FØ-FØ  *
+	 *=========*/
+	&.dictionary-results--word--fo-fo
+	&.dictionary-results--word--fo-fo_3
+		._a
+		._a2 /* Tilvísing til annað leitorð */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._b /* Bending */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._c /* Bendingarmynstur */
+			font-size 75%
+			font-weight normal
+			font-style italic
+			/*text-decoration none*/
+			position relative
+			left 1px
+			top -5px
+		._d
+		._d1
+		._d2 /* d1-d2: Dømistekstur. Er tveir lutir fyri at automatisk teknseting skal virka */
+			font-size 100%
+			font-weight normal
+			font-style italic
+			color #333333
+		._D /* D: Dømi. Inniheldur d-lutir og aðrar lutir sum samlað eru eitt dømi */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._e /* Fremmandur ekvivalentur (fremmanda orðið sum svarar til leitorðið) */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._eind /* Inniheldur lutir sum tilsamans eru ein eind. T.d. lutirnir sum eru høvuðsmerking hjá einum orði ella ein listi við tilvísingum. */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._f /* Framburður */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._frm /* Fremmandur evivalentur. Inniheldur x og e lutir */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._g /* Latínskt heiti á djórum, plantum o.s.fr */
+			font-size 100%
+			font-weight normal
+			font-style italic
+			color #333333
+		._h /* Høvuðsmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._heimild /* Inniheldur lutirnar í eini heimild t.d. <verk>,<sida> */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._hjaord /* Hjáorðssnið av einum orði t.d. abbaligur/abbaliga */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._i /* Nýtslukend viðmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._j /* Bendingarviðmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._k /* klassakodur */
+			font-size 100%
+			font-weight normal
+			font-style italic
+			color #333333
+		._K /* Klassi. Inniheldur k og c lutir sum hoyra saman */
+			font-size 100%
+			font-weight normal
+			font-style normal /* italic */
+			color #333333
+		._l /* Leitorð */
+			font-size 100%
+			font-weight bold
+			font-style normal
+			color #333333
+		._m
+		._m1 /* Merkingartekstur */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._n
+		._n1
+		._n2 /* Nýtslukodur */
+			font-size 100%
+			font-weight normal
+			font-style italic
+			color #333333
+		._ordafl /* Inniheldur frágreiðingina um ein orðaflokk */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+			display block
+		._p
+		._p1
+		._p2 /* Peikorð */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._par /* Paranteslutur */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._r /* Inniheldur lutirnar í eini høvuðsmerking */
+			font-size 100%
+			font-weight bold
+			font-style normal
+			color #0000FF
+			display block
+		._s /* Inniheldur lutirnar í ein undirmerking */
+			font-size 100%
+			font-weight bold
+			font-style italic /* normal */
+			color #333333
+		._smb /* Smb./tilvísingar til onnur leitorð */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._undirleitord /* Inniheldur lutirnar sum hoyra til eitt undirleitorð */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._u /* Unirleitorð */
+			font-size 100%
+			font-weight bold
+			font-style normal
+			color #333333
+		._verk /* Verk/høvundur */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._v
+		._vx /* v: Viðmerking, vx: Viðmerking uttan parantes. Sama sum v, men uttan parantes uttanum */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			color #333333
+		._x /* Málkota */
+			font-size 100%
+			font-weight normal
+			font-style italic
+			color #333333
+		._bullet
+			color #0000ff
+		/*._bullet:before
+			content "\A"
+			white-space pre*/
+
+
+	/*=========*
+	 *  FØ-EN  *
+	 *=========*/
+	&.dictionary-results--word--fo-en
+		.dictionary_number_bold
+			font-weight bold
+			color blue
+	
+	
+	/*=========*
+	 *  EN-FØ  *
+	 *=========*/
+	&.dictionary-results--word--en-fo
+		.dictionary_number_bold
+			font-weight bold
+			color blue
+	
+	
+	/*=========*
+	 *  FR-FØ  *
+	 *=========*/
+	&.dictionary-results--word--fr-fo
+		.dictionary_number_bold
+			font-weight bold
+			color blue
+
+
+	/*=========*
+	 *  FØ-ES  *
+	 *=========*/
+	&.dictionary-results--word--fo-es 
+		.dictionary_number_bold
+			font-weight bold
+			color blue
+
+
+	/*===========*
+	 *  FØ-TILT  *
+	 *===========*/
+	&.dictionary-results--word--fo-tilt 
+		.dictionary_number_bold
+			font-weight bold
+			color blue
+
+
+	/*=========*
+	 *  FØ-IT  *
+	 *=========*/
+	&.dictionary-results--word--fo-it
+		._A /* annað leitorð */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._B /* bending */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._D /* dømi */
+			font-size 100%
+			font-weight bold /* normal */
+			font-style normal /* italic */
+		._G /* latínsk nøvn */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._H /* høvuðsmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._I /* merking til dømi */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._K /* klassi */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._N /* nýtsla */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._P /* peikorð */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._R /* raðtal */
+			font-size 100%
+			font-weight bold
+			font-style normal
+			color #0000FF
+		._S /* undirraðtal k (er bókstavir a,b,c og ikki tøl) */
+			font-size 100%
+			font-weight normal /* bold */
+			font-style italic /* normal */
+		._U /* undirleitorð */
+			font-size 100%
+			font-weight bold
+			font-style normal
+			color #666666
+		._V /* viðmerking */
+			font-size 100%
+			font-weight normal
+			font-style italic
+
+
+	/*==========*
+	 *  FØ-YRK  *
+	 *==========*/
+	&.dictionary-results--word--fo-yrk
+		._A /* annað leitorð */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		.X_B /* bending */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		.X_C /* bendingarmynstur */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._D /* dømi */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._E /* fremmandur ekvivalentur */
+			font-size 100%
+			font-weight normal
+			font-style italic /* normal */
+		.X_F
+			font-size 100%
+			font-weight normal
+			font-style normal
+		.X_G /* latinsk nøvn, kemiskir formlar */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		.X_H /* høvuðsmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		.X_I /* nýtslukend viðmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		.X_M /* merking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._N /* nýtsla */
+			font-size 100%
+			font-weight normal
+			font-style normal /* italic */
+		._P /* peikorð */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._R /* høvuðsraðtal */
+			font-size 100%
+			font-weight bold
+			font-style normal
+			color #0000FF
+		.X_S /* undirraðtal */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		.X_T /*tilvísing */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		.X_U /* undirleitorð */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		.X_V /* viðmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		.X_W /* síðunr */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._X /* málstytting */
+			font-size 100%
+			font-weight normal
+			font-style normal /* Italic */
+
+
+	/*=========*
+	 *  FØ-SP  *
+	 *=========*/
+	&.dictionary-results--word--fo-es
+		.ExplIndex
+			font-weight bold
+			color blue
+
+
+	/*=========*
+	 *  SP-FØ  *
+	 *=========*/
+	&.dictionary-results--word--es-fo
+		._d
+			display block
+
+
+	/*=========*
+	 *  FØ-DA  *
+	 *=========*/
+	&.dictionary-results--word--fo-da 
+		.superscript
+			font-size 75%
+			font-weight normal
+			text-decoration none
+			position relative
+			left 1px
+			top -5px
+		.subscript
+			font-size 75%
+			font-weight normal
+			text-decoration none
+			position relative
+			left -1px
+			top 4px
+		._A /* Tilvísing til annað leitorð */
+			font-size 100%
+			font-weight bold
+			font-style italic
+		._B /* Bending */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._C /* Bendingarmynstur */
+			font-size 75%
+			font-weight normal
+			font-style italic
+			text-decoration none
+			position relative
+			left 1px
+			top -5px
+		._D /* Dømi */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._E /* Fremmandur ekvivalentur */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._F /* Framburður */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._G /* Latíns heiti á djórum, plantum os.fr. */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._H /* Høvuðsmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._I /* Nýtslukend viðmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._J
+		._K /* Klassi */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._L
+		._M /* Merking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._N /* Nýtsla */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._O
+		._P /* Peikorð */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._Q
+		._R /* Høvuðsraðtal */
+			font-size 100%
+			font-weight bold
+			font-style normal
+			color #0000FF
+		._S /* Undirraðtal */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._T /* Tilvísing */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			padding-left 3px
+		._U /* Undirleitorð */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._V /* Viðmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._W /* Síðunr */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._X /* Málstytting */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._Y
+		._Z /* Skákstrikur */
+			font-size 100%
+			font-weight normal
+			font-style normal
+
+
+	/*=========*
+	 *  DA-FØ  *
+	 *=========*/
+	&.dictionary-results--word--da-fo
+		.dictionary_number_bold
+			font-weight bold
+			color blue
+
+	/*=========*
+	 *  DA-FØ2 *
+	 *=========*/
+	&.dictionary-results--word--da-fo2
+		.superscript
+			font-size 75%
+			font-weight normal
+			text-decoration none
+			position relative
+			left 1px
+			top -5px
+		.subscript
+			font-size 75%
+			font-weight normal
+			text-decoration none
+			position relative
+			left -1px
+			top 4px
+		._A /* Tilvísing til annað leitorð */
+			font-size 100%
+			font-weight bold
+			font-style italic
+		._B /* Bending */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._D /* Dømi */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._F /* Framburður */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._K /* Klassi */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._M /* Merking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._N /* Nýtsla */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._R /* Høvuðsraðtal */
+			font-size 100%
+			font-weight bold
+			font-style normal
+			color #0000FF
+		._S /* Undirraðtal */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._X /* Málstytting */
+			font-size 90%
+			font-weight normal
+			font-style italic
+
+	/*=========*
+	 *  FØ-TÝ  *
+	 *=========*/
+	&.dictionary-results--word--fo-de
+		.superscript
+			font-size 75%
+			font-weight normal
+			text-decoration none
+			position relative
+			left 1px
+			top -5px
+		.subscript
+			font-size 75%
+			font-weight normal
+			text-decoration none
+			position relative
+			left -1px
+			top 4px
+		._A /* A Føroysk undirleitorð */
+			font-size 100%
+			font-weight bold
+			font-style italic
+		._B /* B Týsk bending */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._C /* C Týsk orð í V */
+			font-size 90%
+			font-weight normal
+			font-style normal
+		._D /* D Før. orðasambond+máll.heiti */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._E /* E Týsk dømi til H/M */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._F /* F Týskur framburður */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._G /* G Føroysk mállæruupplýsing */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._H /* H Týsk høvuðsmerking */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._I /* I Klombur */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._J
+		._K /* K Føroyskur orðklassi */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._L
+		._M /* M Týsk merking av dømi */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._N /* N Føroysk nýtsluávísing */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._O
+		._P /* P Føroysk peikorð */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._Q
+		._R /* R Høvuðsraðtal */
+			font-size 100%
+			font-weight bold
+			font-style normal
+			color #0000FF
+		._S /* S Undirraðtal */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._T /* T Ávísing L+D */
+			font-size 100%
+			font-weight normal
+			font-style normal
+			padding-left 3px
+		._U /* U Nullstilla S+ávísing A */
+			font-size 100%
+			font-weight normal /* Hetta var normal */
+			font-style italic
+		._V /* V Føroysk viðmerking */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._W /* W Føroyskt dømi til H/D */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._X /* X Týsk máløkisávísing */
+			font-size 90%
+			font-weight normal
+			font-style italic
+		._Y
+		._Z /* Z Reglubrot */
+			font-size 100%
+			font-weight normal
+			font-style normal
+
+
+	/*=========*
+	 *  TÝ-FØ  *
+	 *=========*/
+	&.dictionary-results--word--de-fo
+		.ExplIndex
+			font-weight bold
+			color blue
+		.dictionary_number_bold
+			font-weight bold
+			color blue
+
+
+	/*=========*
+	 *  RU-FØ  *
+	 *=========*/
+	&.dictionary-results--word--ru-fo
+		//font-family sans-serif
+		.dictionary-results--word-title
+			//font-family sans-serif
+			''
+		.scene_number
+			/*color blue*/
+		.phonetics
+			font-size 90%
+			font-family "SILSophiaIPA", "silsipa"
+		.large
+			font-size 150%
+		.small
+			font-size 100%
+		.smallest
+			font-size 75%
+
+	/*==========*
+	 *  FØ-SAM  *
+	 *==========*/
+	&.dictionary-results--word--fo-sam
+		._A /* Andheiti */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._D /* Dømi/Tiltak */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._E /* Tilvísing til undirleitorð */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		._K /* Skyldorð */
+			font-size 100%
+			font-weight normal
+			font-style italic
+		._R /* Tilvísing til orðafelli */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._S /* Tilvísing til stakorð */
+			font-size 100%
+			font-weight bold
+			font-style normal
+		._T /* Tilvísing til tittulorð */
+			font-size 100%
+			font-weight normal
+			font-style normal
+		.rightarrow,
+		.doublearrow,
+		.notequal
+			font-weight bold
+		.synonym,
+		.antonym
+			color #f00

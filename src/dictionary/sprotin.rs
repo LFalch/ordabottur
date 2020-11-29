@@ -3,9 +3,9 @@ use reqwest::{
     blocking::get as reqwest_get
 };
 use serde::{Deserialize, Deserializer};
-use scraper::Html;
+use scraper::{Html, Node};
 
-use crate::util::{MsgBunchBuilder, MsgBunch};
+use crate::util::{MsgBunchBuilder, MsgBunch, to_subscript, to_superscript, split_trim};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct SprotinResponse {
@@ -106,7 +106,232 @@ struct SprotinDictionary {
     total_searches: u64,
 }
 
-// fn<'de, D>(D) -> Result<T, D::Error> where D: Deserializer<'de>
+#[derive(Debug, Copy, Clone, Default)]
+struct CalculatedStyle {
+    bold: bool,
+    italics: bool,
+    underline: bool,
+    strikethrough: bool,
+    superscript: bool,
+    subscript: bool,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct Style {
+    bold: Option<bool>,
+    italics: Option<bool>,
+    underline: Option<bool>,
+    strikethrough: Option<bool>,
+    superscript: Option<bool>,
+    subscript: Option<bool>,
+    newline_follows: bool,
+}
+
+const EMPTY: Style = Style {
+    bold: None,
+    italics: None,
+    underline: None,
+    strikethrough: None,
+    superscript: None,
+    subscript: None,
+    newline_follows: false,
+};
+const DEFAULT: Style = Style {
+    bold: Some(false),
+    italics: Some(false),
+    strikethrough: None,
+    underline: None,
+    superscript: None,
+    subscript: None,
+    newline_follows: false,
+};
+const ITALICS: Style = Style {
+    italics: Some(true),
+    .. DEFAULT
+};
+
+impl Style {
+    fn from_element_name(s: &str) -> Self {
+        match s {
+            "b" | "strong" => Style { bold: Some(true), .. EMPTY},
+            "i" | "em" => Style { italics: Some(true), .. EMPTY},
+            "a" | "mark" => Style { underline: Some(true), .. EMPTY},
+            "del" => Style { strikethrough: Some(true), .. EMPTY},
+            "sub" => Style { subscript: Some(true), .. EMPTY},
+            "sup" => Style { superscript: Some(true), .. EMPTY},
+            _ => EMPTY,
+        }
+    }
+
+    fn from_class(s: &str) -> Self {
+        match s {
+            "_eind" | "_h" | "_H" | "_smb" | "_p" | "_p1" | "_p2" | "_m" | "_D" => DEFAULT,
+            "word_link" => Style { underline: Some(true), .. EMPTY},
+            "_r" => Style { bold: Some(true), newline_follows: true, .. DEFAULT},
+            "dictionary_number_bold" | "_R" | "_u" | "_l" | "_s" | "_a" | "_a2" | "_A" => Style { bold: Some(true), .. DEFAULT},
+            "_d" | "_k" => Style { italics: Some(true), .. DEFAULT},
+            "_c" => Style { superscript: Some(true), italics: Some(true), .. DEFAULT},
+            _ => EMPTY,
+        }
+    }
+    fn calculate(self) -> CalculatedStyle {
+        CalculatedStyle {
+            bold: self.bold.unwrap_or(false),
+            italics: self.italics.unwrap_or(false),
+            underline: self.underline.unwrap_or(false),
+            strikethrough: self.strikethrough.unwrap_or(false),
+            superscript: self.superscript.unwrap_or(false),
+            subscript: self.subscript.unwrap_or(false),
+        }
+    }
+}
+
+impl std::ops::BitOr for Style {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Style {
+            bold: self.bold.or(rhs.bold),
+            italics: self.italics.or(rhs.italics),
+            underline: self.underline.or(rhs.underline),
+            strikethrough: self.strikethrough.or(rhs.strikethrough),
+            superscript: self.superscript.or(rhs.superscript),
+            subscript: self.subscript.or(rhs.subscript),
+            newline_follows: self.newline_follows,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct DiscordStylisedTextBuilder {
+    buf: String,
+    last_style: CalculatedStyle,
+    last_whitespace_length: usize,
+}
+
+impl DiscordStylisedTextBuilder {
+    fn new() -> Self {
+        DiscordStylisedTextBuilder {
+            buf: String::new(),
+            last_style: CalculatedStyle::default(),
+            last_whitespace_length: 0,
+        }
+    }
+    fn push_str(&mut self, s: &str, style: CalculatedStyle) {
+        use std::borrow::Cow;
+        let c: Cow<_>;
+        if style.superscript {
+            c = to_superscript(s).into();
+        } else if style.subscript {
+            c = to_subscript(s).into();
+        } else {
+            c = s.into();
+        }
+
+        fn changed(a: bool, b: bool) -> Option<bool> {
+            if a == b {
+                None
+            } else {
+                Some(b)
+            }
+        }
+        fn tos(s: &str, b: Option<bool>, start: bool) -> &str {
+            match (start, b) {
+                (true, Some(true)) => s,
+                (false, Some(false)) => s,
+                _ => "",
+            } 
+        }
+
+        let bold_changed = changed(self.last_style.bold, style.bold);
+        let italics_changed = changed(self.last_style.italics, style.italics);
+        let underline_changed = changed(self.last_style.underline, style.underline);
+        let strikethrough_changed = changed(self.last_style.strikethrough, style.strikethrough);
+
+        let any_changed = bold_changed.is_some() || italics_changed.is_some() || underline_changed.is_some() || strikethrough_changed.is_some();
+
+        let s = c.as_ref();
+
+        if !any_changed {
+            self.buf.push_str(s);
+            self.last_whitespace_length = s.rfind(|c: char| !c.is_whitespace()).map(|i| s.len() - i - 1).unwrap_or_else(|| s.len());
+        } else {
+            let (start_whitespace, text, end_whitespace) = split_trim(s);
+            let start_whitespace = self.buf.split_off(self.buf.len() - self.last_whitespace_length) + start_whitespace;
+
+            self.buf.push_str(tos("__", underline_changed, false));
+            self.buf.push_str(tos("**", bold_changed, false));
+            self.buf.push_str(tos("_", italics_changed, false));
+            self.buf.push_str(tos("~~", strikethrough_changed, false));
+
+            self.buf.push_str(&start_whitespace);
+
+            self.buf.push_str(tos("~~", strikethrough_changed, true));
+            self.buf.push_str(tos("_", italics_changed, true));
+            self.buf.push_str(tos("**", bold_changed, true));
+            self.buf.push_str(tos("__", underline_changed, true));
+            self.buf.push_str(text);
+            self.buf.push_str(end_whitespace);
+
+            self.last_whitespace_length = end_whitespace.len();
+        }
+
+        self.last_style = style;
+    }
+    fn build(self) -> String {
+        let DiscordStylisedTextBuilder {
+            last_style,
+            mut buf,
+            last_whitespace_length: _,
+        } = self;
+
+        if last_style.underline {
+            buf.push_str("__")
+        }
+        if last_style.italics {
+            buf.push_str("_")
+        }
+        if last_style.bold {
+            buf.push_str("**")
+        }
+        if last_style.strikethrough {
+            buf.push_str("~~")
+        }
+        
+        buf
+    }
+}
+
+fn parse_children(ret: &mut DiscordStylisedTextBuilder, children: ::ego_tree::iter::Children<Node>, style: Style) {
+    for child in children {
+        match child.value() {
+            Node::Element(elem) => {
+                let elem_style = style | Style::from_element_name(dbg!(elem.name()));
+                let style = elem.classes().fold(elem_style, |acc, b| Style::from_class(dbg!(b)) | acc);
+                parse_children(ret, child.children(), style)
+            }
+            Node::Text(text) => {
+                let s = text.text.to_string();
+
+                ret.push_str(&dbg!(s), style.calculate());
+            }
+            _ => ()
+        }
+    }
+    if style.newline_follows {
+        ret.push_str("\n", style.calculate());
+    }
+}
+
+// TODO interpret different classes appropriately (this rn just ignores all html tags and just retrieves the raw text)
+fn html_to_discord_markup(s: &str, style: Style) -> String {
+    let mut ret = DiscordStylisedTextBuilder::new();
+
+    eprintln!("{}", s);
+    let html = Html::parse_fragment(s);
+    parse_children(&mut ret, html.tree.root().children(), style);
+
+    ret.build()
+}
 
 fn deserialize_optional_vec<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> {
     Option::<Vec<String>>::deserialize(d).map(Option::unwrap_or_default)
@@ -152,28 +377,27 @@ impl SprotinWord {
 
         let mut s = format!("**{}**", self.display_word);
 
-        if let Some(mut inflex_cats) = self.inflex_cats.clone() {
-            // Use scraper here instead <span class="_c"> seems to be equivalent to <sup> here
-            if let (Some(i), Some(j)) = (inflex_cats.find("<sup>"), inflex_cats.find("</sup>")) {
-                inflex_cats = format!("{} {}{} ", &inflex_cats[..i], crate::util::to_superscript(&inflex_cats[i+5..j]), &inflex_cats[j+6..]);
-            }
-
-            let inflex_cats: String = Html::parse_fragment(&inflex_cats).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
-
-            s.push_str(&format!(" _{}_", inflex_cats));
-        }
-
         if let Some(short_inflected_form) = &self.short_inflected_form {
-            let short_inflected_form: String = Html::parse_fragment(short_inflected_form).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
+            let short_inflected_form = html_to_discord_markup(&short_inflected_form.replace('\r', "").replace('\n', ""), EMPTY);
 
-            s.push_str(&format!(", _{}_", short_inflected_form));
+            s.push_str(&format!(" {}", short_inflected_form));
+        }
+        if let Some(inflex_cats) = &self.inflex_cats {
+            let inflex_cats = html_to_discord_markup(inflex_cats, ITALICS);
+
+            s.push_str(&format!(" {}", inflex_cats));
+        }
+        if let Some(grammar_comment) = &self.grammar_comment {
+            let grammar_comment = html_to_discord_markup(grammar_comment, ITALICS);
+
+            s.push_str(&format!(" {}", grammar_comment));
         }
         if let Some(short_inflection) = &self.short_inflection {
-            s.push_str(&format!(", ²_{}_", short_inflection));
+            s.push_str(&format!(", ²{}", short_inflection));
         }
 
         if let Some(phonetic) = &self.phonetic {
-            let phonetic: String = Html::parse_fragment(phonetic).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
+            let phonetic: String = html_to_discord_markup(phonetic, EMPTY);
 
             s.push_str(&format!(" {}", phonetic));
         }
@@ -192,11 +416,10 @@ impl SprotinWord {
     pub fn to_short_string(&self) -> String {
         let mut s = self.to_very_short_string();
 
-        s.push_str(":  ");
+        s.push_str(": ");
 
         {
-            // TODO interpret different classes appropriately (this rn just ignores all html tags and just retrieves the raw text)
-            let explanation: String = Html::parse_fragment(&self.explanation).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
+            let explanation: String = html_to_discord_markup(&self.explanation, EMPTY);
 
             if explanation.len() >= Self::SHORT_EXPLANATION_LENGTH {
                 let mut cutoff = Self::SHORT_EXPLANATION_LENGTH;
@@ -224,8 +447,7 @@ impl SprotinWord {
         mmb.add_string(self.to_very_short_string()).add_string("\n").end_section();
 
         {
-            // TODO interpret different classes appropriately (this rn just ignores all html tags and just retrieves the raw text)
-            let explanation: String = Html::parse_fragment(&self.explanation).tree.values().filter_map(|val| val.as_text().map(|t| t.text.to_string())).collect();
+            let explanation: String = html_to_discord_markup(&self.explanation, EMPTY);
 
             mmb.add_lines(explanation);
         }
@@ -234,9 +456,10 @@ impl SprotinWord {
             mmb.begin_section().add_string(&self.inflection_table()).add_string("\n").end_section();
         }
 
-        if let Some(grammar_comment) = &self.grammar_comment {
-            mmb.begin_section().add_string("\n").add_string(&grammar_comment).end_section();
+        for msg in &mmb.inner.messages {
+            eprint!("{}", msg);
         }
+        eprintln!();
     }
 
     // TODO kinda hacky, but done after the JS making the tables on Sprotin itself

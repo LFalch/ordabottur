@@ -57,7 +57,7 @@ impl MsgBunch {
 
 #[derive(Debug)]
 pub struct MsgBunchBuilder {
-    inner: MsgBunch,
+    pub inner: MsgBunch,
     chars_num: usize, 
     no_split_section: Option<(String, usize)>,
 }
@@ -184,7 +184,33 @@ impl MsgBunchBuilder {
     }
 }
 
-pub fn num_to_super(c: char) -> char {
+pub fn split_trim(s: &str) -> (&str, &str, &str) {
+    let end_trim_index = s.rfind(|c: char| !c.is_whitespace()).map(|i| {
+        i + s[i..].chars().next().unwrap().len_utf8()
+    }).unwrap_or(0);
+    
+    let (start, end_trim) = s.split_at(end_trim_index);
+    
+    let front_trim_index = start.find(|c: char| !c.is_whitespace()).unwrap_or(end_trim_index);
+
+    let (front_trim, text) = start.split_at(front_trim_index);
+
+    (front_trim, text, end_trim)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_trim;
+    #[test]
+    fn test_split_trim() {
+        assert_eq!(split_trim("hestetest"), ("", "hestetest", ""));
+        assert_eq!(split_trim("   hest  \n\n asdg \t\n"), ("   ", "hest  \n\n asdg", " \t\n"));
+        assert_eq!(split_trim("\n"), ("", "", "\n"));
+        assert_eq!(split_trim(" "), ("", "", " "));
+    }
+}
+
+pub fn to_super(c: char) -> char {
     match c {
         '-' => '⁻',
         '0' => '⁰',
@@ -200,8 +226,28 @@ pub fn num_to_super(c: char) -> char {
         c => c
     }
 }
+pub fn to_sub(c: char) -> char {
+    match c {
+        '-' => '₋',
+        '0' => '₀',
+        '1' => '₁',
+        '2' => '₂',
+        '3' => '₃',
+        '4' => '₄',
+        '5' => '₅',
+        '6' => '₆',
+        '7' => '₇',
+        '8' => '₈',
+        '9' => '₉',
+        c => c
+    }
+}
 
 #[inline]
 pub fn to_superscript(src: &str) -> String {
-    src.chars().map(num_to_super).collect()
+    src.chars().map(to_super).collect()
+}
+#[inline]
+pub fn to_subscript(src: &str) -> String {
+    src.chars().map(to_sub).collect()
 }
