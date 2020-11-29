@@ -819,6 +819,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "numbers_to_words"
+version = "0.1.0"
+source = "git+https://github.com/LFalch/numbers_to_words.git#0300f0bdf6f2a982d01bc0b6a67677340168ab7a"
+
+[[package]]
 name = "opaque-debug"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -863,6 +868,7 @@ version = "0.1.0"
 dependencies = [
  "ego-tree",
  "encoding_rs",
+ "numbers_to_words",
  "regex",
  "reqwest",
  "scraper",

@@ -26,6 +26,8 @@ use serenity::model::{
     id::*,
 };
 
+use numbers_to_words::to_faroese_words;
+
 const FALCH: UserId = UserId(165_877_785_544_491_008);
 const EILIV: UserId = UserId(234_039_000_036_409_344);
 
@@ -284,8 +286,23 @@ fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     Ok(())
 }
 
+#[command]
+#[description = "Pronounce a number in Faroese"]
+#[aliases(tal, úttal)]
+fn num(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let n = args.message().replace(<char>::is_whitespace, "");
+
+    if let Some(words) = to_faroese_words(&n) {
+        msg.channel_id.say(ctx, words)?;
+    } else {
+        msg.channel_id.say(ctx, "Malformed number. Ógilt tal.")?;
+    }
+
+    Ok(())
+}
+
 #[group]
-#[commands(gm, sa, sai, sprotin, fof, foe, enf, fod, daf, daf2, fot, tyf, fos, spf, grf, frf, foi, ruf, fok, kif, sam, navn, alfr, tilt, yrk, busk)]
+#[commands(gm, sa, sai, sprotin, fof, foe, enf, fod, daf, daf2, fot, tyf, fos, spf, grf, frf, foi, ruf, fok, kif, sam, navn, alfr, tilt, yrk, busk, num)]
 #[only_in("guilds")]
 #[help_available]
 struct General;

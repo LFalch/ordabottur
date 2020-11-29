@@ -19,4 +19,5 @@ reqwest = { version = "0.10", features = ["blocking"] }
 scraper = "0.11"
 encoding_rs = "0.8"
 ego-tree = "0.6"
+numbers_to_words = {git = "https://github.com/LFalch/numbers_to_words.git"}
 # futures = "0.3"
