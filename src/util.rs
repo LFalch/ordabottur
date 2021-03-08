@@ -1,4 +1,8 @@
+#![warn(missing_docs)]
+//! Module with various useful things for manipulating text for use with Discord.
+
 #[derive(Debug, Clone, Eq, PartialEq)]
+/// A dictionary entry from Grunnmanuskriptet
 pub struct Entry {
     word: String,
     class: String,
@@ -7,6 +11,8 @@ pub struct Entry {
 
 impl Entry {
     #[inline(always)]
+    /// Create a new entry from the word form, its class (part of speech)
+    /// and a body with an explanation of the word.
     pub fn new_gm(word: String, class: String, mut body: String) -> Self {
         body = body.replace("&amp;", "&");
         body = body.replace("`", "\\`");
@@ -43,7 +49,14 @@ impl Display for Entry {
 const MSG_LIMIT: usize = 2000;
 
 #[derive(Debug, Default, Clone)]
+/// A collection of strings that each are below 2000 characters
+/// so that they can be sent as each their own Discord message
 pub struct MsgBunch {
+    /// The strings
+    /// 
+    /// ## Note:
+    /// 
+    /// It's a logic error to make any of these strings bigger than 2000
     pub messages: Vec<String>,
 }
 
@@ -56,7 +69,18 @@ impl MsgBunch {
 }
 
 #[derive(Debug)]
+/// Builder for an [`MsgBunch`]
+/// 
+/// Has functionality that can be used to help not
+/// ruining formatting across multiple messages
+/// by marking certain sections of texts as fitting together
+/// and therefore not ideal to split.
+/// 
+/// The message builder will instead try its best to only split between sections.
+/// Although if a section is too big, you can specify how it should try that section,
+/// or - by default - it will try to only split at punctuation or parentheses.
 pub struct MsgBunchBuilder {
+    /// The partial bunch being built
     pub inner: MsgBunch,
     chars_num: usize, 
     no_split_section: Option<(String, usize)>,
@@ -71,6 +95,9 @@ impl Default for MsgBunchBuilder {
 
 impl MsgBunchBuilder {
     #[inline]
+    /// Makes a new empty bunch
+    /// 
+    /// Allocates 2000 bytes of space
     pub fn new() -> Self {
         MsgBunchBuilder {
             inner: MsgBunch::new(),
@@ -79,6 +106,9 @@ impl MsgBunchBuilder {
         }
     }
 
+    /// Adds a string to the message bunch.
+    /// If the builder is currently in a section
+    /// it will add to that section in order to manage where messages are split.
     pub fn add_string<S: AsRef<str>>(&mut self, s: S) -> &mut Self {
         let string_to_add = s.as_ref();
         let string_to_add_size = string_to_add.chars().count();
@@ -107,6 +137,9 @@ impl MsgBunchBuilder {
         self
     }
 
+    /// Puts all following text into a section.
+    /// 
+    /// Calling this multiple times before ending the section does nothing
     pub fn begin_section(&mut self) -> &mut Self {
         if self.no_split_section.is_none() {
             self.no_split_section = Some((String::new(), 0));
@@ -115,15 +148,22 @@ impl MsgBunchBuilder {
     }
 
     #[inline]
+    /// Whether a section has previously been begun and not yet ended.
     pub fn is_in_section(&self) -> bool {
         self.no_split_section.is_some()
     }
 
     #[inline]
+    /// Ends the section trying to split at section borders if a message gets too big.
+    /// The same as `end_section_with` but with a default set of characters to split at.
     pub fn end_section(&mut self) -> &mut Self {
         self.end_section_with(|c| matches!(c, ';' | ',' | '.' | '?' | '!' | ')' | ':' | '-'))
     }
-
+    
+    /// Ends this section trying to split at section borders, but if the section is too big
+    /// uses the given callback to determine what characters to split at.
+    /// 
+    /// Does nothing if no section currently has begun.
     pub fn end_section_with<F: FnMut(char) -> bool>(&mut self, mut f: F) -> &mut Self {
         if let Some((mut no_split_section, size)) = self.no_split_section.take() {
             if self.chars_num + size > MSG_LIMIT {
@@ -158,6 +198,9 @@ impl MsgBunchBuilder {
         self
     }
 
+    /// Adds each of the lines in the given string as a section.
+    ///
+    /// Adds a trailing newline even if none is in the given string
     pub fn add_lines<S: AsRef<str>>(&mut self, lines: S) -> &mut Self {
         for line in lines.as_ref().lines() {
             self.begin_section().add_string(line).add_string("\n").end_section();
@@ -166,6 +209,10 @@ impl MsgBunchBuilder {
         self
     }
 
+    /// Adds an [`Entry`] to the message bunch.
+    /// 
+    /// This does not make its own section, and if you need it to be a section,
+    /// you should call `.begin_section()` and `.end_section()` around it.
     pub fn entries(&mut self, entries: Vec<Entry>) -> &mut Self {
         for entry in entries {
             self.add_lines(entry.to_string());
@@ -175,12 +222,19 @@ impl MsgBunchBuilder {
     }
 
     #[inline]
+    /// Ends whatever sections the last begun section if there was one
+    /// and returns the resulting bunch.
     pub fn build(mut self) -> MsgBunch {
         self.end_section();
         self.inner
     }
 }
 
+/// Splits the string into three with the beginning whitespace in the 0th field
+/// and the trailing whitespace in the 2nd field.Activity
+/// 
+/// If the string contains only whitespace, it'll be considered trailing whitespace
+/// and fields 0 and 1 will be empty
 pub fn split_trim(s: &str) -> (&str, &str, &str) {
     let end_trim_index = s.rfind(|c: char| !c.is_whitespace()).map(|i| {
         i + s[i..].chars().next().unwrap().len_utf8()
@@ -207,6 +261,8 @@ mod tests {
     }
 }
 
+/// Turns - and 0-9 into their superscript variants.
+/// Passes other characters through without change.
 pub fn to_super(c: char) -> char {
     match c {
         '-' => '⁻',
@@ -223,6 +279,8 @@ pub fn to_super(c: char) -> char {
         c => c
     }
 }
+/// Turns - and 0-9 into their subscript variants.
+/// Passes other characters through without change.
 pub fn to_sub(c: char) -> char {
     match c {
         '-' => '₋',
@@ -241,10 +299,12 @@ pub fn to_sub(c: char) -> char {
 }
 
 #[inline]
+/// Applies [`to_sup`] to each of the characters in a given string.
 pub fn to_superscript(src: &str) -> String {
     src.chars().map(to_super).collect()
 }
 #[inline]
+/// Applies [`to_sub`] to each of the characters in a given string.
 pub fn to_subscript(src: &str) -> String {
     src.chars().map(to_sub).collect()
 }
