@@ -87,8 +87,8 @@ fn sa(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         let mut cur_option = None;
     
         for arg in args.raw() {
-            if arg.starts_with('-') {
-                cur_option = Some(&arg[1..]);
+            if let Some(stripped) = arg.strip_prefix('-') {
+                cur_option = Some(stripped);
             } else if let Some(option) = cur_option {
                 match option {
                     "r" => options.registrant = arg,

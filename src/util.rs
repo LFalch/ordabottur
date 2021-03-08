@@ -121,10 +121,7 @@ impl MsgBunchBuilder {
 
     #[inline]
     pub fn end_section(&mut self) -> &mut Self {
-        self.end_section_with(|c| match c {
-            ';' | ',' | '.' | '?' | '!' | ')' | ':' | '-' => true,
-            _ => false
-        })
+        self.end_section_with(|c| matches!(c, ';' | ',' | '.' | '?' | '!' | ')' | ':' | '-'))
     }
 
     pub fn end_section_with<F: FnMut(char) -> bool>(&mut self, mut f: F) -> &mut Self {

@@ -288,7 +288,7 @@ impl DiscordStylisedTextBuilder {
             buf.push_str("__")
         }
         if last_style.italics {
-            buf.push_str("_")
+            buf.push('_')
         }
         if last_style.bold {
             buf.push_str("**")
