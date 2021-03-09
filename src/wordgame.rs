@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use rand::prelude::*;
 use rand::distributions::WeightedIndex;
 
 use serenity::model::channel::Message;
+use serenity::model::id::UserId;
 use serenity::prelude::TypeMapKey;
 
 /// Based on distributions on Wikipedia, please replace with others at some point.
@@ -69,6 +72,7 @@ pub fn gen_table() -> Table {
 pub struct WordGameState {
     pub table: Table,
     pub taken_words: Vec<String>,
+    pub guessers: HashMap<UserId, u32>,
     pub message: Message,
 }
 
@@ -96,14 +100,15 @@ pub fn format_table(table: &Table) -> String {
 }
 
 impl WordGameState {
-    pub const fn new(table: Table, message: Message) -> Self {
+    pub fn new(table: Table, message: Message) -> Self {
         WordGameState {
             taken_words: Vec::new(),
+            guessers: HashMap::new(),
             table,
             message
         }
     }
-    pub fn guess_word(&mut self, word: String) -> Result<(), GuessError> {
+    pub fn guess_word(&mut self, user: UserId, word: String) -> Result<(), GuessError> {
         let index_to_insert = match self.taken_words.binary_search(&word) {
             Ok(_) => return Err(GuessError::AlreadyGuessed),
             Err(i) => i,
@@ -122,6 +127,8 @@ impl WordGameState {
 
         if check_word(&word) {
             self.taken_words.insert(index_to_insert, word);
+
+            *self.guessers.entry(user).or_insert(0) += 1;
 
             Ok(())
         } else {
@@ -145,12 +152,13 @@ fn check_word(s: &str) -> bool {
         words
     };
 
-    let mut b = false;
     for word in words {
-        if word.inflected_form.iter().any(|w| w == s) {
-            b = true;
+        if s == word.search_word {
+            return true;
         }
-        b = b || s == word.search_word;
+        if word.inflected_form.iter().any(|w| w == s) {
+            return true;
+        }
     }
-    b
+    false
 }

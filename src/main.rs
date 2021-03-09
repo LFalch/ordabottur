@@ -307,10 +307,14 @@ fn num(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[aliases(wordgame, orðaspæl)]
 fn wg(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     if let Some(wgs) = ctx.data.write().get_mut::<wordgame::WordGameState>() {
-        match wgs.guess_word(args.message().to_owned()) {
+        match wgs.guess_word(msg.author.id, args.message().to_owned()) {
             Ok(()) => {
                 msg.react(&ctx, "✅")?;
-                let cntnt = format!("Taken words: {}\n{}", wgs.taken_words.join(", "), wordgame::format_table(&wgs.table));
+                let mut winners = String::new();
+                for (user, points) in &wgs.guessers {
+                    winners.push_str(&format!("<@{}>: {}\n", user.0, points));
+                }
+                let cntnt = format!("Taken words: {}\n\n{}\n{}", wgs.taken_words.join(", "), winners, wordgame::format_table(&wgs.table));
                 wgs.message.edit(&ctx, |f| f.content(cntnt))?;
             }
             Err(wordgame::GuessError::AlreadyGuessed) => {
