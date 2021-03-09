@@ -4,8 +4,6 @@ use rand::distributions::WeightedIndex;
 use serenity::model::channel::Message;
 use serenity::prelude::TypeMapKey;
 
-use std::collections::HashSet;
-
 /// Based on distributions on Wikipedia, please replace with others at some point.
 const LETTER_WEIGHTS: [(char, u32); 29] = [
     ('a', 9_180),
@@ -111,10 +109,14 @@ impl WordGameState {
             Err(i) => i,
         };
 
-        let mut table_set: HashSet<&char> = self.table.iter().collect();
+        let mut letters: Vec<char> = self.table.to_vec();
+        letters.sort_unstable();
         for c in word.chars() {
-            if !table_set.remove(&c) {
-                return Err(GuessError::WrongLetters);
+            match letters.binary_search(&c) {
+                Ok(i) => {
+                    letters.remove(i);
+                }
+                Err(_) => return Err(GuessError::WrongLetters),
             }
         }
 
