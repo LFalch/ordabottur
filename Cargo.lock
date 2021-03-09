@@ -869,6 +869,7 @@ dependencies = [
  "ego-tree",
  "encoding_rs",
  "numbers_to_words",
+ "rand 0.7.3",
  "regex",
  "reqwest",
  "scraper",

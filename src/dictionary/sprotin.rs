@@ -17,7 +17,7 @@ pub struct SprotinResponse {
     from: u32,
     to: u32,
     time: f64,
-    words: Vec<SprotinWord>,
+    pub words: Vec<SprotinWord>,
     single_word: Option<SprotinWord>,
     related_words: Vec<()>,
     groups: Vec<SprotinGroup>,
@@ -339,21 +339,21 @@ fn deserialize_optional_vec<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<Strin
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "PascalCase")]
-struct SprotinWord {
+pub struct SprotinWord {
     id: u64,
     image_filename: Option<String>,
     image_comment: Option<String>,
     image_owner: Option<String>,
     prepend_word: Option<String>,
-    search_word: String,
-    display_word: String,
+    pub search_word: String,
+    pub display_word: String,
     // Type hmm
     word_list: Option<String>,
     // Inflexional categories
     inflex_cats: Option<String>,
     short_inflected_form: Option<String>,
     #[serde(deserialize_with = "self::deserialize_optional_vec")]
-    inflected_form: Vec<String>,
+    pub inflected_form: Vec<String>,
     // in html
     explanation: String,
     origin: Option<String>,

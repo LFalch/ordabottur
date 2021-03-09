@@ -33,11 +33,12 @@ const EILIV: UserId = UserId(234_039_000_036_409_344);
 
 const PREFIX: &str = "]";
 
-mod dictionary {
+pub mod dictionary {
     pub mod uio;
     pub mod sprotin;
 }
 pub mod util;
+pub mod wordgame;
 
 use dictionary::uio::{sa_entries, sa_entry, gm_entries, SetelArkivOptions};
 use dictionary::sprotin::search as fo_search;
@@ -301,8 +302,55 @@ fn num(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     Ok(())
 }
 
+#[command]
+#[description = "Start a word game!"]
+#[aliases(wordgame, orðaspæl)]
+fn wg(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    if let Some(wgs) = ctx.data.write().get_mut::<wordgame::WordGameState>() {
+        match wgs.guess_word(args.message().to_owned()) {
+            Ok(()) => {
+                msg.react(&ctx, "✅")?;
+                let cntnt = format!("Taken words: {}\n{}", wgs.taken_words.join(", "), wordgame::format_table(&wgs.table));
+                wgs.message.edit(&ctx, |f| f.content(cntnt))?;
+            }
+            Err(wordgame::GuessError::AlreadyGuessed) => {
+                msg.react(&ctx, "♻️")?;
+            }
+            Err(wordgame::GuessError::NotFound) => {
+                msg.react(&ctx, "❌")?;
+                msg.channel_id.say(&ctx, "Word form not found in a dictionary.")?;
+            }
+            Err(wordgame::GuessError::WrongLetters) => {
+                msg.react(&ctx, "❌")?;
+                msg.channel_id.say(&ctx, "You used letters not in the game.")?;
+            }
+        }
+
+        return Ok(());
+    }
+
+    let table = wordgame::gen_table();
+    let msg = msg.channel_id.say(&ctx, wordgame::format_table(&table))?;
+    let wgs = wordgame::WordGameState::new(table, msg);
+
+    ctx.data.write().insert::<wordgame::WordGameState>(wgs);
+
+    Ok(())
+}
+
+#[command]
+#[description = "Stop current word game!"]
+#[aliases(deletewordgame, nýttorðaspæl)]
+fn wgdel(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
+    ctx.data.write().remove::<wordgame::WordGameState>();
+
+    msg.react(ctx, "✅")?;
+
+    Ok(())
+}
+
 #[group]
-#[commands(gm, sa, sai, sprotin, fof, foe, enf, fod, daf, daf2, fot, tyf, fos, spf, grf, frf, foi, ruf, fok, kif, sam, navn, alfr, tilt, yrk, busk, num)]
+#[commands(gm, sa, sai, sprotin, fof, foe, enf, fod, daf, daf2, fot, tyf, fos, spf, grf, frf, foi, ruf, fok, kif, sam, navn, alfr, tilt, yrk, busk, num, wg)]
 #[only_in("guilds")]
 #[help_available]
 struct General;
@@ -313,7 +361,7 @@ struct General;
 struct ModOnly;
 
 #[group]
-#[commands(setgame, say)]
+#[commands(setgame, say, wgdel)]
 #[owners_only]
 #[only_in("guilds")]
 struct Owner;
