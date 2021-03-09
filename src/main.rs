@@ -315,7 +315,12 @@ fn wg(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                     winners.push_str(&format!("<@{}>: {}\n", user.0, points));
                 }
                 let cntnt = format!("Taken words: {}\n\n{}\n{}", wgs.taken_words.join(", "), winners, wordgame::format_table(&wgs.table));
-                wgs.message.edit(&ctx, |f| f.content(cntnt))?;
+
+                if wgs.taken_words.len() % 10 == 0 {
+                    wgs.message = msg.channel_id.say(&ctx, cntnt)?;
+                } else {
+                    wgs.message.edit(&ctx, |f| f.content(cntnt))?;
+                }
             }
             Err(wordgame::GuessError::AlreadyGuessed) => {
                 msg.react(&ctx, "♻️")?;
