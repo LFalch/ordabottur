@@ -317,7 +317,7 @@ fn wg(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 let table = wordgame::format_table(&wgs.table);
                 let cntnt = format!("Taken words: {}\n\n{}\n{}", wgs.taken_words.join(", "), winners, &table);
 
-                if wgs.taken_words.len() % 10 == 0 {
+                if wgs.taken_words.len() % 6 == 0 {
                     wgs.message = msg.channel_id.say(&ctx, table)?;
                 }
                 wgs.message.edit(&ctx, |f| f.content(cntnt))?;
