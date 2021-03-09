@@ -143,7 +143,9 @@ impl TypeMapKey for WordGameState {
 
 use crate::dictionary::sprotin::search;
 
-fn check_word(s: &str) -> bool {
+fn check_word(mut s: &str) -> bool {
+    // probably not neccessary 
+    s = s.trim();
     let words = {
         let response_inflections = search(1, 1, s, true, false).unwrap();
         let response_sinflections = search(1, 1, s, false, false).unwrap();
@@ -156,7 +158,7 @@ fn check_word(s: &str) -> bool {
         if s == word.search_word {
             return true;
         }
-        if word.inflected_form.iter().any(|w| w == s) {
+        if word.inflected_form.iter().map(|s| s.split('/')).flatten().map(|s| s.trim()).any(|w| w == s) {
             return true;
         }
     }
