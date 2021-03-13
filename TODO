@@ -1,3 +1,7 @@
 - Use html tags to format text from Sprotin properly, check out stylesheet_dicationaries.styl
 - Extend conjugation tables
 ? Use embeds instead
+- Make inflectionator service and command
+- Wordgame
+    - Use inflectionator to check for extra inflections
+- Add endgame
