@@ -478,7 +478,7 @@ impl SprotinWord {
 navnháttur/infinitive                            | {:sg$} |
 lýsingarháttur í tátíð / supine                  | {:sg$} |
   Bendingar í tíð / conjugations                 | {:sg$} | {:pl$} |
-3. persónur í nútid / 3rd sg. present            | {:sg$} | {:pl$} |
+3. persónur í nútíð / 3rd sg. present            | {:sg$} | {:pl$} |
 eintal   í tátíð / sg. past                      | {:sg$} | {:pl$} |
 lýsingarháttur í tátíð, k. hvørfall / past part. | {:sg$} | {:pl$} |
 ```", infinitive, supine, SG_COLUMN_TITLE, PL_COLUMN_TITLE, present_3p, infinitive, past_sg, past_pl, past_part, "", sg = sg_column_width, pl = pl_column_width)
