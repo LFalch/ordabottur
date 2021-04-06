@@ -6,7 +6,7 @@ use std::{
     str::FromStr
 };
 
-use serenity::prelude::*;
+use serenity::{async_trait, prelude::*};
 use serenity::framework::standard::{
     Args,
     CommandResult,
@@ -48,14 +48,14 @@ use util::MsgBunchBuilder;
 #[description = "Set the status of the bot to be playing the set game"]
 #[usage = "<game>"]
 #[min_args(1)]
-fn setgame(ctx: &mut Context, _msg: &Message, args: Args) -> CommandResult {
-    ctx.set_activity(Activity::playing(args.message()));
+async fn setgame(ctx: &Context, _msg: &Message, args: Args) -> CommandResult {
+    ctx.set_activity(Activity::playing(args.message())).await;
     Ok(())
 }
 
 #[command]
 #[description = "Søk i grunnmanuskriptet"]
-fn gm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn gm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     match gm_entries(args.message(), 10) {
         Ok((results_msg, entries)) => {
             let mut mmb = MsgBunchBuilder::new();
@@ -66,11 +66,11 @@ fn gm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 .entries(entries);
 
             for msg_body in mmb.build().messages {
-                msg.channel_id.say(&ctx, msg_body)?;
+                msg.channel_id.say(&ctx, msg_body).await?;
             }
         }
         Err(e) => {
-            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e))?;
+            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e)).await?;
         }
     }
 
@@ -80,7 +80,7 @@ fn gm(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[description = "Søk i Setelarkivet"]
 #[usage = "[-r <registrant>] [-f <forfattar>] [-t <tittel>] [-o <område>] [-s|p <stad>] [oppslagsord]"]
-fn sa(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn sa(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let mut options = SetelArkivOptions::default();
     let mut oppslag = "";
 
@@ -98,7 +98,7 @@ fn sa(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                     "o" => options.area_code = arg,
                     "s" | "p" => options.place_code = arg,
                     _ => {
-                        msg.reply(ctx, "Ukjend søkjeinstilling")?;
+                        msg.reply(ctx, "Ukjend søkjeinstilling").await?;
 
                         return Ok(());
                     }
@@ -121,11 +121,11 @@ fn sa(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
             let msg_bunch = mmb.build();
 
             for msg_body in msg_bunch.messages {
-                msg.channel_id.say(&ctx, msg_body)?;
+                msg.channel_id.say(&ctx, msg_body).await?;
             }
         }
         Err(e) => {
-            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e))?;
+            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e)).await?;
         }
     }
 
@@ -133,7 +133,7 @@ fn sa(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 }
 #[command]
 #[description = "Sjå eit oppslag frå Setelarkivet"]
-fn sai(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn sai(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let id = args.single()?;
 
     match sa_entry(id) {
@@ -146,10 +146,10 @@ fn sai(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
                 } else {
                     msg
                 }
-            })?;
+            }).await?;
         }
         Err(e) => {
-            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e))?;
+            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e)).await?;
         }
     }
 
@@ -214,7 +214,7 @@ impl FromStr for DictionaryId {
 #[description = "Look up in a Sprotin dictionary. Usage: ]sprotin <dictionary> <word> [word number]"]
 #[aliases("fo")]
 #[min_args(1)]
-fn sprotin(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn sprotin(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let dict = args.single::<DictionaryId>().unwrap_or(DictionaryId(1));
 
     match fo_search(dict.0, 1, &args.single_quoted::<String>()?, false, false) {
@@ -228,11 +228,11 @@ fn sprotin(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             }
 
             for msg_body in msg_bunch.messages {
-                msg.channel_id.say(&ctx, msg_body)?;
+                msg.channel_id.say(&ctx, msg_body).await?;
             }
         }
         Err(e) => {
-            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e))?;
+            msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e)).await?;
         }
     }
     Ok(())
@@ -246,8 +246,8 @@ macro_rules! short_commands {
         #[command]
         #[description = $description]
         #[aliases($($alias),*)]
-        fn $name(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-            sprotin(ctx, msg, serenity::framework::standard::Args::new(&format!(concat!(stringify!($name), " {}"), args.message()), &[' '.into()]))
+        async fn $name(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+            sprotin(ctx, msg, serenity::framework::standard::Args::new(&format!(concat!(stringify!($name), " {}"), args.message()), &[' '.into()])).await
         }
         )*
     };
@@ -281,22 +281,22 @@ short_commands! {
 
 #[command]
 #[description = "Say"]
-fn say(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    msg.channel_id.say(&ctx, args.message())?;
-    msg.delete(&ctx)?;
+async fn say(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    msg.channel_id.say(&ctx, args.message()).await?;
+    msg.delete(&ctx).await?;
     Ok(())
 }
 
 #[command]
 #[description = "Pronounce a number in Faroese"]
 #[aliases(tal, úttal)]
-fn num(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn num(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let n = args.message().replace(<char>::is_whitespace, "");
 
     if let Some(words) = to_faroese_words(&n) {
-        msg.channel_id.say(ctx, words)?;
+        msg.channel_id.say(ctx, words).await?;
     } else {
-        msg.channel_id.say(ctx, "Malformed number. Ógilt tal.")?;
+        msg.channel_id.say(ctx, "Malformed number. Ógilt tal.").await?;
     }
 
     Ok(())
@@ -305,11 +305,11 @@ fn num(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[description = "Start a word game!"]
 #[aliases(wordgame, orðaspæl)]
-fn wg(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    if let Some(wgs) = ctx.data.write().get_mut::<wordgame::WordGameState>() {
+async fn wg(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    if let Some(wgs) = ctx.data.write().await.get_mut::<wordgame::WordGameState>() {
         match wgs.guess_word(msg.author.id, args.message().to_owned()) {
             Ok(()) => {
-                msg.react(&ctx, "✅")?;
+                msg.react(&ctx, '✅').await?;
                 let mut winners = String::new();
                 for (user, points) in &wgs.guessers {
                     winners.push_str(&format!("<@{}>: {}\n", user.0, points));
@@ -318,20 +318,20 @@ fn wg(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                 let cntnt = format!("Taken words: {}\n\n{}\n{}", wgs.taken_words.join(", "), winners, &table);
 
                 if wgs.taken_words.len() % 6 == 0 {
-                    wgs.message = msg.channel_id.say(&ctx, table)?;
+                    wgs.message = msg.channel_id.say(&ctx, table).await?;
                 }
-                wgs.message.edit(&ctx, |f| f.content(cntnt))?;
+                wgs.message.edit(&ctx, |f| f.content(cntnt)).await?;
             }
             Err(wordgame::GuessError::AlreadyGuessed) => {
-                msg.react(&ctx, "♻️")?;
+                msg.react(&ctx, ReactionType::Unicode("♻️".to_owned())).await?;
             }
             Err(wordgame::GuessError::NotFound) => {
-                msg.react(&ctx, "❌")?;
-                msg.channel_id.say(&ctx, "Word form not found in a dictionary.")?;
+                msg.react(&ctx, '❌').await?;
+                msg.channel_id.say(&ctx, "Word form not found in a dictionary.").await?;
             }
             Err(wordgame::GuessError::WrongLetters) => {
-                msg.react(&ctx, "❌")?;
-                msg.channel_id.say(&ctx, "You used letters not in the game.")?;
+                msg.react(&ctx, '❌').await?;
+                msg.channel_id.say(&ctx, "You used letters not in the game.").await?;
             }
         }
 
@@ -339,10 +339,10 @@ fn wg(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     }
 
     let table = wordgame::gen_table();
-    let msg = msg.channel_id.say(&ctx, wordgame::format_table(&table))?;
+    let msg = msg.channel_id.say(&ctx, wordgame::format_table(&table)).await?;
     let wgs = wordgame::WordGameState::new(table, msg);
 
-    ctx.data.write().insert::<wordgame::WordGameState>(wgs);
+    ctx.data.write().await.insert::<wordgame::WordGameState>(wgs);
 
     Ok(())
 }
@@ -350,10 +350,10 @@ fn wg(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[description = "Stop current word game!"]
 #[aliases(deletewordgame, nýttorðaspæl)]
-fn wgdel(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
-    ctx.data.write().remove::<wordgame::WordGameState>();
+async fn wgdel(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
+    ctx.data.write().await.remove::<wordgame::WordGameState>();
 
-    msg.react(ctx, "✅")?;
+    msg.react(ctx, '✅').await?;
 
     Ok(())
 }
@@ -379,56 +379,61 @@ struct Owner;
 // #[alias("h", "hjelp", "hjælp", "hjálp")]
 #[lacking_permissions = "Hide"]
 #[max_levenshtein_distance(4)]
-fn help(
-   context: &mut Context,
+async fn help(
+   context: &Context,
    msg: &Message,
    args: Args,
    help_options: &'static HelpOptions,
    groups: &[&'static CommandGroup],
    owners: HashSet<UserId>
 ) -> CommandResult {
-    help_commands::with_embeds(context, msg, args, help_options, groups, owners)
+    help_commands::with_embeds(context, msg, args, help_options, groups, owners).await;
+    Ok(())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let token = env::var("ORDABOT_TOKEN")
         .expect("Expected a token in the environment");
-    let mut client = Client::new(&token, Handler).unwrap();
-
-    client.with_framework(StandardFramework::new()
-        .configure(|c| c.dynamic_prefix(|_c, _m| {
-            match std::fs::read_to_string(".prefix_override") {
-                Ok(s) => Some(s),
-                Err(_) => Some(PREFIX.to_owned()),
-            }
-        }).allow_dm(true).owners(vec![FALCH, EILIV].into_iter().collect()))
-        .group(&GENERAL_GROUP)
-        .group(&OWNER_GROUP)
-        .group(&MODONLY_GROUP)
-        .help(&HELP)
-    );
+    let mut client = Client::builder(&token)
+        .event_handler(Handler)
+        .framework(StandardFramework::new()
+            .configure(|c| c.dynamic_prefix(|_c, _m| Box::pin(async move{
+                match std::fs::read_to_string(".prefix_override") {
+                    Ok(s) => Some(s),
+                    Err(_) => Some(PREFIX.to_owned()),
+                }
+            })).allow_dm(true).owners(vec![FALCH, EILIV].into_iter().collect()))
+            .group(&GENERAL_GROUP)
+            .group(&OWNER_GROUP)
+            .group(&MODONLY_GROUP)
+            .help(&HELP)
+        ).await.expect("Could not make client");
 
     {
         // let mut data = client.data.write();
     }
 
-    if let Err(why) = client.start() {
+    if let Err(why) = client.start().await {
         println!("Client error: {:?}", why);
     }
 }
 
 struct Handler;
 
+#[async_trait]
 impl EventHandler for Handler {
-    fn ready(&self, ctx: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
         println!("Guilds:");
-        for name in ready.guilds.iter().map(|g| g.id().to_partial_guild(&ctx).unwrap().name) {
-            println!("    {}", name);
+        let ctx = &ctx;
+
+        for name in ready.guilds.iter().map(|g| Box::pin(async move { g.id().to_partial_guild(ctx).await.unwrap().name })) {
+            println!("    {}", name.await);
         }
     }
 
-    fn message(&self, _ctx: Context, msg: Message) {
+    async fn message(&self, _ctx: Context, msg: Message) {
         if msg.author.bot {
             return
         }
