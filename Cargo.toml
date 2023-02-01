@@ -22,4 +22,3 @@ encoding_rs = "0.8"
 ego-tree = "0.6"
 numbers_to_words = {git = "https://github.com/LFalch/numbers_to_words.git"}
 rand = { version = "0.7", features = ["alloc"] }
-# futures = "0.3"
