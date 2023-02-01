@@ -29,7 +29,6 @@ use serenity::model::{
 use numbers_to_words::to_faroese_words;
 
 const FALCH: UserId = UserId(165_877_785_544_491_008);
-const EILIV: UserId = UserId(234_039_000_036_409_344);
 
 const PREFIX: &str = "]";
 
@@ -56,7 +55,7 @@ async fn setgame(ctx: &Context, _msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[description = "Søk i grunnmanuskriptet"]
 async fn gm(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    match gm_entries(args.message(), 10) {
+    match gm_entries(args.message(), 10).await {
         Ok((results_msg, entries)) => {
             let mut mmb = MsgBunchBuilder::new();
 
@@ -110,7 +109,7 @@ async fn sa(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         }
     }
 
-    match sa_entries(oppslag, 35, options) {
+    match sa_entries(oppslag, 35, options).await {
         Ok((results_msg, entries)) => {
             let mut mmb = MsgBunchBuilder::new();
 
@@ -136,7 +135,7 @@ async fn sa(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 async fn sai(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let id = args.single()?;
 
-    match sa_entry(id) {
+    match sa_entry(id).await {
         Ok((oppslag, img_src)) => {
             msg.channel_id.send_message(&ctx, |msg| {
                 msg.content(oppslag);
@@ -217,7 +216,7 @@ impl FromStr for DictionaryId {
 async fn sprotin(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let dict = args.single::<DictionaryId>().unwrap_or(DictionaryId(1));
 
-    match fo_search(dict.0, 1, &args.single_quoted::<String>()?, false, false) {
+    match fo_search(dict.0, 1, &args.single_quoted::<String>()?, false, false).await {
         Ok(result) => {
             let msg_bunch;
 
@@ -307,7 +306,7 @@ async fn num(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 #[aliases(wordgame, orðaspæl)]
 async fn wg(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     if let Some(wgs) = ctx.data.write().await.get_mut::<wordgame::WordGameState>() {
-        match wgs.guess_word(msg.author.id, args.message().to_owned()) {
+        match wgs.guess_word(msg.author.id, args.message().to_owned()).await {
             Ok(()) => {
                 msg.react(&ctx, '✅').await?;
                 let mut winners = String::new();
@@ -387,7 +386,7 @@ async fn help(
    groups: &[&'static CommandGroup],
    owners: HashSet<UserId>
 ) -> CommandResult {
-    help_commands::with_embeds(context, msg, args, help_options, groups, owners).await;
+    help_commands::with_embeds(context, msg, args, help_options, groups, owners).await?;
     Ok(())
 }
 
@@ -395,7 +394,21 @@ async fn help(
 async fn main() {
     let token = env::var("ORDABOT_TOKEN")
         .expect("Expected a token in the environment");
-    let mut client = Client::builder(&token)
+
+    let intents = 
+        GatewayIntents::GUILD_MEMBERS
+        | GatewayIntents::GUILDS
+        | GatewayIntents::GUILD_BANS
+        | GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::GUILD_MESSAGE_REACTIONS
+        | GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::DIRECT_MESSAGE_REACTIONS
+        | GatewayIntents::MESSAGE_CONTENT
+        | GatewayIntents::GUILD_PRESENCES
+        | GatewayIntents::GUILD_EMOJIS_AND_STICKERS
+        ;
+
+    let mut client = Client::builder(&token, intents)
         .event_handler(Handler)
         .framework(StandardFramework::new()
             .configure(|c| c.dynamic_prefix(|_c, _m| Box::pin(async move{
@@ -403,7 +416,7 @@ async fn main() {
                     Ok(s) => Some(s),
                     Err(_) => Some(PREFIX.to_owned()),
                 }
-            })).allow_dm(true).owners(vec![FALCH, EILIV].into_iter().collect()))
+            })).allow_dm(true).owners(vec![FALCH].into_iter().collect()))
             .group(&GENERAL_GROUP)
             .group(&OWNER_GROUP)
             .group(&MODONLY_GROUP)
@@ -428,7 +441,7 @@ impl EventHandler for Handler {
         println!("Guilds:");
         let ctx = &ctx;
 
-        for name in ready.guilds.iter().map(|g| Box::pin(async move { g.id().to_partial_guild(ctx).await.unwrap().name })) {
+        for name in ready.guilds.iter().map(|g| Box::pin(async move { g.id.to_partial_guild(ctx).await.unwrap().name })) {
             println!("    {}", name.await);
         }
     }

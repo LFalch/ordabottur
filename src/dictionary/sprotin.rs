@@ -1,6 +1,9 @@
+#![allow(dead_code)]
+
 use std::num::NonZeroUsize;
 use reqwest::{
-    blocking::get as reqwest_get
+    Response,
+    get as reqwest_get
 };
 use serde::{Deserialize, Deserializer};
 use scraper::{Html, Node};
@@ -557,8 +560,8 @@ hvørsfall/gen   | {:m$} | {:f$} | {:n$} |
 
 #[cfg(not(feature = "from_res_error_resolve"))]
 #[inline(always)]
-fn from_res(res: reqwest::blocking::Response) -> SprotinResponse {
-    res.json().unwrap()
+async fn from_res(res: Response) -> SprotinResponse {
+    res.json().await.unwrap()
 }
 #[cfg(feature = "from_res_error_resolve")]
 fn from_res(res: reqwest::blocking::Response) -> SprotinResponse {
@@ -583,17 +586,17 @@ fn from_res(res: reqwest::blocking::Response) -> SprotinResponse {
     }
 }
 
-pub fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_inflections: bool, search_descriptions: bool) -> Result<SprotinResponse, u16> {
+pub async fn search(dictionary_id: u8, dictionary_page: u16, search_for: &str, search_inflections: bool, search_descriptions: bool) -> Result<SprotinResponse, u16> {
     // This one doesn't seem to make a difference
     const SKIP_OTHER_DICTIONARIES_RESULTS: bool = true;
     // This is one gives us similar word suggestions if no results were found
     const SKIP_SIMILAR_WORDS: bool = false;
 
     let res = reqwest_get(&format!("https://sprotin.fo/dictionary_search_json.php?DictionaryId={}&DictionaryPage={}&SearchFor={}&SearchInflections={}&SearchDescriptions={}&Group={}&SkipOtherDictionariesResults={}&SkipSimilarWords={}",
-        dictionary_id, dictionary_page, search_for, search_inflections as u8, search_descriptions as u8, "", SKIP_OTHER_DICTIONARIES_RESULTS as u8, SKIP_SIMILAR_WORDS as u8)).unwrap();
+        dictionary_id, dictionary_page, search_for, search_inflections as u8, search_descriptions as u8, "", SKIP_OTHER_DICTIONARIES_RESULTS as u8, SKIP_SIMILAR_WORDS as u8)).await.unwrap();
 
     if res.status().is_success() {
-        Ok(from_res(res))
+        Ok(from_res(res).await)
     } else {
         Err(res.status().as_u16())
     }
@@ -617,13 +620,15 @@ fn dictionary_name(i: u32) -> &'static str {
         12 => "RU-FØ",
         24 => "FØ-KI",
         26 => "KI-FØ",
+        27 => "FØ-JA",
+        28 => "JA-FØ",
         15 => "SAM",
         25 => "NAVN",
         22 => "ALFR",
         23 => "TILT",
         13 => "YRK",
         32 => "BUSK",
-        _ => panic!("no such dictionary"),
+        _ => "????",
     }
 }
 

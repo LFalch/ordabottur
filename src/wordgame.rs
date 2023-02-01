@@ -108,7 +108,7 @@ impl WordGameState {
             message
         }
     }
-    pub fn guess_word(&mut self, user: UserId, word: String) -> Result<(), GuessError> {
+    pub async fn guess_word(&mut self, user: UserId, word: String) -> Result<(), GuessError> {
         let index_to_insert = match self.taken_words.binary_search(&word) {
             Ok(_) => return Err(GuessError::AlreadyGuessed),
             Err(i) => i,
@@ -125,7 +125,7 @@ impl WordGameState {
             }
         }
 
-        if check_word(&word) {
+        if check_word(&word).await {
             self.taken_words.insert(index_to_insert, word);
 
             *self.guessers.entry(user).or_insert(0) += 1;
@@ -143,12 +143,12 @@ impl TypeMapKey for WordGameState {
 
 use crate::dictionary::sprotin::search;
 
-fn check_word(mut s: &str) -> bool {
+async fn check_word(mut s: &str) -> bool {
     // probably not neccessary 
     s = s.trim();
     let words = {
-        let response_inflections = search(1, 1, s, true, false).unwrap();
-        let response_sinflections = search(1, 1, s, false, false).unwrap();
+        let response_inflections = search(1, 1, s, true, false).await.unwrap();
+        let response_sinflections = search(1, 1, s, false, false).await.unwrap();
         let mut words = response_inflections.words;
         words.extend(response_sinflections.words);
         words

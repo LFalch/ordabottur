@@ -1,21 +1,24 @@
 use reqwest::{
     header::CONTENT_TYPE,
-    blocking::{get as reqwest_get, Client as ReqClient, RequestBuilder}
+    get as reqwest_get,
+    Client as ReqClient,
+    RequestBuilder,
 };
 use scraper::{Html, Selector};
 use encoding_rs::mem::convert_utf8_to_latin1_lossy;
 
 use crate::util::Entry;
-pub fn gm_entries(ord: &str, result_row_amount: u16) -> Result<(String, Vec<Entry>), u16> {
+pub async fn gm_entries(ord: &str, result_row_amount: u16) -> Result<(String, Vec<Entry>), u16> {
     let client = ReqClient::new();
 
     let res = gm_post(client.post("http://www.edd.uio.no/perl/search/search.cgi"),
         ord, result_row_amount)
         .send()
+        .await
         .unwrap();
 
     if res.status().is_success() {
-        let html = Html::parse_document(&res.text().unwrap());
+        let html = Html::parse_document(&res.text().await.unwrap());
 
         let entry_selector = Selector::parse(".ResRowGray td, .ResRowWhite td").unwrap();
         let result_number_selector = Selector::parse(".BeneathNavigator").unwrap();
@@ -40,16 +43,17 @@ pub fn gm_entries(ord: &str, result_row_amount: u16) -> Result<(String, Vec<Entr
     }
 }
 
-pub fn sa_entries(ord: &str, result_row_amount: u16, options: SetelArkivOptions) -> Result<(String, Vec<Entry>), u16> {
+pub async fn sa_entries<'a, 'b>(ord: &'a str, result_row_amount: u16, options: SetelArkivOptions<'b>) -> Result<(String, Vec<Entry>), u16> {
     let client = ReqClient::new();
 
     let res = sa_post(client.post("http://www.edd.uio.no/perl/search/search.cgi"),
         ord, result_row_amount, options)
         .send()
+        .await
         .unwrap();
 
     if res.status().is_success() {
-        let html = Html::parse_document(&res.text().unwrap());
+        let html = Html::parse_document(&res.text().await.unwrap());
 
         let entry_selector = Selector::parse(".ResRowGray td, .ResRowWhite td").unwrap();
         let result_number_selector = Selector::parse(".BeneathNavigator").unwrap();
@@ -73,11 +77,11 @@ pub fn sa_entries(ord: &str, result_row_amount: u16, options: SetelArkivOptions)
         Err(res.status().as_u16())
     }
 }
-pub fn sa_entry(id: u32) -> Result<(String, Option<String>), u16> {
-    let res = reqwest_get(&format!("https://www.edd.uio.no/perl/search/objectviewer.cgi?tabid=436&primarykey={}", id)).unwrap();
+pub async fn sa_entry(id: u32) -> Result<(String, Option<String>), u16> {
+    let res = reqwest_get(&format!("https://www.edd.uio.no/perl/search/objectviewer.cgi?tabid=436&primarykey={}", id)).await.unwrap();
 
     if res.status().is_success() {
-        let html = Html::parse_document(&res.text().unwrap());
+        let html = Html::parse_document(&res.text().await.unwrap());
 
         let oppslag_selector = Selector::parse(".oppslag").unwrap();
         let grammar_selector = Selector::parse(".GRAMMATIKK").unwrap();
