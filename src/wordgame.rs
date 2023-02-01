@@ -69,17 +69,24 @@ pub fn gen_table() -> Table {
     v
 }
 
+#[derive(Default, Clone, Copy)]
+pub struct Points {
+    pub letters: u64,
+    pub words: u32,
+}
+
 pub struct WordGameState {
     pub table: Table,
     pub taken_words: Vec<String>,
-    pub guessers: HashMap<UserId, u32>,
+    pub guessers: HashMap<UserId, Points>,
     pub message: Message,
 }
 
 pub enum GuessError {
     AlreadyGuessed,
     WrongLetters,
-    NotFound,
+    NotFound(String),
+    TooShort,
 }
 
 pub fn format_table(table: &Table) -> String {
@@ -125,14 +132,22 @@ impl WordGameState {
             }
         }
 
+        let letter_count = (self.table.len() - letters.len()) as u64;
+
+        if letter_count < 2 {
+            return Err(GuessError::TooShort);
+        }
+
         if check_word(&word).await {
             self.taken_words.insert(index_to_insert, word);
 
-            *self.guessers.entry(user).or_insert(0) += 1;
+            let ps = self.guessers.entry(user).or_insert_with(Default::default);
+            ps.words += 1;
+            ps.letters += letter_count;
 
             Ok(())
         } else {
-            Err(GuessError::NotFound)
+            Err(GuessError::NotFound(word))
         }
     }
 }

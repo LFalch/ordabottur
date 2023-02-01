@@ -6,7 +6,7 @@ use std::{
     str::FromStr
 };
 
-use serenity::{async_trait, prelude::*};
+use serenity::{async_trait, prelude::*, utils::ContentSafeOptions};
 use serenity::framework::standard::{
     Args,
     CommandResult,
@@ -42,6 +42,7 @@ pub mod wordgame;
 use dictionary::uio::{sa_entries, sa_entry, gm_entries, SetelArkivOptions};
 use dictionary::sprotin::search as fo_search;
 use util::MsgBunchBuilder;
+use wordgame::{WordGameState, GuessError};
 
 #[command]
 #[description = "Set the status of the bot to be playing the set game"]
@@ -304,37 +305,12 @@ async fn num(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[description = "Start a word game!"]
 #[aliases(wordgame, orðaspæl)]
-async fn wg(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    if let Some(wgs) = ctx.data.write().await.get_mut::<wordgame::WordGameState>() {
-        match wgs.guess_word(msg.author.id, args.message().to_owned()).await {
-            Ok(()) => {
-                msg.react(&ctx, '✅').await?;
-                let mut winners = String::new();
-                for (user, points) in &wgs.guessers {
-                    winners.push_str(&format!("<@{}>: {}\n", user.0, points));
-                }
-                let table = wordgame::format_table(&wgs.table);
-                let cntnt = format!("Taken words: {}\n\n{}\n{}", wgs.taken_words.join(", "), winners, &table);
-
-                if wgs.taken_words.len() % 6 == 0 {
-                    wgs.message = msg.channel_id.say(&ctx, table).await?;
-                }
-                wgs.message.edit(&ctx, |f| f.content(cntnt)).await?;
-            }
-            Err(wordgame::GuessError::AlreadyGuessed) => {
-                msg.react(&ctx, ReactionType::Unicode("♻️".to_owned())).await?;
-            }
-            Err(wordgame::GuessError::NotFound) => {
-                msg.react(&ctx, '❌').await?;
-                msg.channel_id.say(&ctx, "Word form not found in a dictionary.").await?;
-            }
-            Err(wordgame::GuessError::WrongLetters) => {
-                msg.react(&ctx, '❌').await?;
-                msg.channel_id.say(&ctx, "You used letters not in the game.").await?;
-            }
-        }
-
-        return Ok(());
+#[max_args(0)]
+async fn wg(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
+    if ctx.data.read().await.get::<wordgame::WordGameState>().is_some() {
+        // If a game is already happening, don't replace it
+        msg.react(ctx, '🔂').await?;
+        return Ok(())
     }
 
     let table = wordgame::gen_table();
@@ -446,9 +422,58 @@ impl EventHandler for Handler {
         }
     }
 
-    async fn message(&self, _ctx: Context, msg: Message) {
+    async fn message(&self, ctx: Context, msg: Message) {
         if msg.author.bot {
             return
         }
+
+        if let Some(wgs) = ctx.data.write().await.get_mut::<wordgame::WordGameState>() {
+            if msg.channel_id == wgs.message.channel_id {
+                if let Some(s) = msg.content.strip_prefix([':', '.', ';']) {
+                    for guess in s.split_whitespace() {
+                        word_guess(&ctx, guess, &msg, wgs).await.unwrap();
+                    }
+                    // Ignore
+                }
+            }
+        }
     }
+}
+
+async fn word_guess(ctx: &Context, word: &str, msg: &Message, wgs: &mut WordGameState) -> CommandResult {
+    let word = serenity::utils::content_safe(ctx, word, &ContentSafeOptions::default(), &[]);
+
+    match wgs.guess_word(msg.author.id, word).await {
+        Ok(()) => {
+            msg.react(&ctx, '✅').await?;
+            let mut winners = String::new();
+            for (user, points) in &wgs.guessers {
+                winners.push_str(&format!("<@{}>: {} ({} orð)\n", user.0, points.letters, points.words));
+            }
+            let table = wordgame::format_table(&wgs.table);
+            let cntnt = format!("Taken words: {}\n\n{winners}\n{table}\nType `.` or `:` followed by your guess(es)", wgs.taken_words.join(", "));
+
+            if wgs.taken_words.len() % 6 == 0 {
+                wgs.message = msg.channel_id.say(&ctx, table).await?;
+            }
+            wgs.message.edit(&ctx, |f| f.content(cntnt)).await?;
+        }
+        Err(GuessError::AlreadyGuessed) => {
+            msg.react(&ctx, ReactionType::Unicode("♻️".to_owned())).await?;
+        }
+        Err(GuessError::NotFound(word)) => {
+            msg.react(&ctx, '❌').await?;
+            msg.channel_id.say(&ctx, format!("_{word}_ not found in a dictionary.")).await?;
+        }
+        Err(GuessError::WrongLetters) => {
+            msg.react(&ctx, '❌').await?;
+            msg.channel_id.say(&ctx, "You used letters not in the game.").await?;
+        }
+        Err(GuessError::TooShort) => {
+            msg.react(&ctx, '❌').await?;
+            msg.channel_id.say(&ctx, "Your guess was too short.").await?;
+        }
+    }
+
+    Ok(())
 }
