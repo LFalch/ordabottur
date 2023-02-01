@@ -71,6 +71,7 @@ pub fn gen_table() -> Table {
 
 #[derive(Default, Clone, Copy)]
 pub struct Points {
+    pub points: u128,
     pub letters: u64,
     pub words: u32,
 }
@@ -144,6 +145,7 @@ impl WordGameState {
             let ps = self.guessers.entry(user).or_insert_with(Default::default);
             ps.words += 1;
             ps.letters += letter_count;
+            ps.points += ((letter_count -1) as u128).pow(2);
 
             Ok(())
         } else {

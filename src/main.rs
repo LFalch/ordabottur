@@ -448,7 +448,7 @@ async fn word_guess(ctx: &Context, word: &str, msg: &Message, wgs: &mut WordGame
             msg.react(&ctx, '✅').await?;
             let mut winners = String::new();
             for (user, points) in &wgs.guessers {
-                winners.push_str(&format!("<@{}>: {} ({} orð)\n", user.0, points.letters, points.words));
+                winners.push_str(&format!("<@{}>: {} ({} bókstavir, {} orð)\n", user.0, points.points, points.letters, points.words));
             }
             let table = wordgame::format_table(&wgs.table);
             let cntnt = format!("Taken words: {}\n\n{winners}\n{table}\nType `.` or `:` followed by your guess(es)", wgs.taken_words.join(", "));
