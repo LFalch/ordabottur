@@ -6,7 +6,7 @@ use std::{
     str::FromStr
 };
 
-use serenity::{async_trait, prelude::*, utils::ContentSafeOptions};
+use serenity::{async_trait, prelude::*, utils::ContentSafeOptions, model::{prelude::Member, user::User}};
 use serenity::framework::standard::{
     Args,
     CommandResult,
@@ -29,6 +29,10 @@ use serenity::model::{
 use numbers_to_words::to_faroese_words;
 
 const FALCH: UserId = UserId(165_877_785_544_491_008);
+
+const FAROESE_SERVER: GuildId = GuildId(432837404987228171);
+const GENERAL_ALMENT: ChannelId = ChannelId(433011994161971230);
+const NYGGIR_LIMIR: ChannelId = ChannelId(432971266312503301);
 
 const PREFIX: &str = "]";
 
@@ -436,6 +440,22 @@ impl EventHandler for Handler {
                     // Ignore
                 }
             }
+        }
+    }
+
+    async fn guild_member_addition(&self, ctx: Context, new_member: Member) {
+        if new_member.guild_id == FAROESE_SERVER {
+            GENERAL_ALMENT.say(&ctx, &format!("Bjóðið **{}** vælkomnum/-ari!", new_member.distinct())).await.unwrap();
+            NYGGIR_LIMIR.send_message(&ctx, |cm| cm.content(
+                format!("<@{}> kom júst inn á servaranum!", new_member.user.id.0)
+            ).allowed_mentions(|cam| cam.empty_users())).await.unwrap();
+        }
+    }
+    async fn guild_member_removal(&self, ctx: Context, guild_id: GuildId, user: User, _member_data_if_available: Option<Member>) {
+        if guild_id == FAROESE_SERVER {
+            NYGGIR_LIMIR.send_message(&ctx, |cm| cm.content(
+                format!("<@{}> fór júst úr servaranum.", user.id.0)
+            ).allowed_mentions(|cam| cam.empty_users())).await.unwrap();
         }
     }
 }
