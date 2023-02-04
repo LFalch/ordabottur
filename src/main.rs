@@ -447,7 +447,7 @@ impl EventHandler for Handler {
         if new_member.guild_id == FAROESE_SERVER {
             GENERAL_ALMENT.say(&ctx, &format!("Bjóðið **{}** vælkomnum/-ari!", new_member.distinct())).await.unwrap();
             NYGGIR_LIMIR.send_message(&ctx, |cm| cm.content(
-                format!("<@{}> kom júst inn á servaranum!", new_member.user.id.0)
+                format!("<@{}> er júst komin upp í servaran!", new_member.user.id.0)
             ).allowed_mentions(|cam| cam.empty_users())).await.unwrap();
         }
     }
