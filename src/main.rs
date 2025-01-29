@@ -2,11 +2,11 @@
 
 use std::{
     env,
-    collections::{HashSet},
+    collections::HashSet,
     str::FromStr
 };
 
-use serenity::{async_trait, prelude::*, utils::ContentSafeOptions, model::{prelude::Member, user::User}};
+use serenity::{all::{standard::Configuration, ActivityData, CreateAllowedMentions, CreateEmbed, CreateMessage, EditMessage}, async_trait, model::{prelude::Member, user::User}, prelude::*, utils::ContentSafeOptions};
 use serenity::framework::standard::{
     Args,
     CommandResult,
@@ -28,11 +28,11 @@ use serenity::model::{
 
 use numbers_to_words::to_faroese_words;
 
-const FALCH: UserId = UserId(165_877_785_544_491_008);
+const FALCH: UserId = UserId::new(165_877_785_544_491_008);
 
-const FAROESE_SERVER: GuildId = GuildId(432837404987228171);
-const GENERAL_ALMENT: ChannelId = ChannelId(433011994161971230);
-const NYGGIR_LIMIR: ChannelId = ChannelId(432971266312503301);
+const FAROESE_SERVER: GuildId = GuildId::new(432837404987228171);
+const GENERAL_ALMENT: ChannelId = ChannelId::new(433011994161971230);
+const NYGGIR_LIMIR: ChannelId = ChannelId::new(432971266312503301);
 
 const PREFIX: &str = "]";
 
@@ -53,7 +53,7 @@ use wordgame::{WordGameState, GuessError};
 #[usage = "<game>"]
 #[min_args(1)]
 async fn setgame(ctx: &Context, _msg: &Message, args: Args) -> CommandResult {
-    ctx.set_activity(Activity::playing(args.message())).await;
+    ctx.set_activity(Some(ActivityData::playing(args.message())));
     Ok(())
 }
 
@@ -142,15 +142,11 @@ async fn sai(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
     match sa_entry(id).await {
         Ok((oppslag, img_src)) => {
-            msg.channel_id.send_message(&ctx, |msg| {
-                msg.content(oppslag);
-
-                if let Some(img_src) = img_src {
-                    msg.embed(|e| e.image(img_src))
-                } else {
-                    msg
-                }
-            }).await?;
+            let mut cm = CreateMessage::new().content(oppslag);
+            if let Some(img_src) = img_src {
+                cm = cm.embed(CreateEmbed::new().image(img_src));
+            }
+            msg.channel_id.send_message(&ctx, cm).await?;
         }
         Err(e) => {
             msg.channel_id.say(&ctx, &format!("Eg fekk tíverri {}", e)).await?;
@@ -388,15 +384,18 @@ async fn main() {
         | GatewayIntents::GUILD_EMOJIS_AND_STICKERS
         ;
 
+    let framework = StandardFramework::new();
+    framework.configure(Configuration::new()
+        .dynamic_prefix(|_c, _m| Box::pin(async move{
+        match std::fs::read_to_string(".prefix_override") {
+            Ok(s) => Some(s),
+            Err(_) => Some(PREFIX.to_owned()),
+        }
+    })).allow_dm(true).owners(vec![FALCH].into_iter().collect()));
+
     let mut client = Client::builder(&token, intents)
         .event_handler(Handler)
-        .framework(StandardFramework::new()
-            .configure(|c| c.dynamic_prefix(|_c, _m| Box::pin(async move{
-                match std::fs::read_to_string(".prefix_override") {
-                    Ok(s) => Some(s),
-                    Err(_) => Some(PREFIX.to_owned()),
-                }
-            })).allow_dm(true).owners(vec![FALCH].into_iter().collect()))
+        .framework(framework
             .group(&GENERAL_GROUP)
             .group(&OWNER_GROUP)
             .group(&MODONLY_GROUP)
@@ -446,16 +445,16 @@ impl EventHandler for Handler {
     async fn guild_member_addition(&self, ctx: Context, new_member: Member) {
         if new_member.guild_id == FAROESE_SERVER {
             GENERAL_ALMENT.say(&ctx, &format!("Bjóðið **{}** vælkomnum/-ari!", new_member.distinct())).await.unwrap();
-            NYGGIR_LIMIR.send_message(&ctx, |cm| cm.content(
-                format!("<@{}> er júst komin upp í servaran!", new_member.user.id.0)
-            ).allowed_mentions(|cam| cam.empty_users())).await.unwrap();
+            NYGGIR_LIMIR.send_message(&ctx, CreateMessage::new().content(
+                format!("<@{}> er júst komin upp í servaran!", new_member.user.id)
+            ).allowed_mentions(CreateAllowedMentions::new().empty_users())).await.unwrap();
         }
     }
     async fn guild_member_removal(&self, ctx: Context, guild_id: GuildId, user: User, _member_data_if_available: Option<Member>) {
         if guild_id == FAROESE_SERVER {
-            NYGGIR_LIMIR.send_message(&ctx, |cm| cm.content(
-                format!("<@{}> fór júst úr servaranum.", user.id.0)
-            ).allowed_mentions(|cam| cam.empty_users())).await.unwrap();
+            NYGGIR_LIMIR.send_message(&ctx, CreateMessage::new().content(
+                format!("<@{}> fór júst úr servaranum.", user.id)
+            ).allowed_mentions(CreateAllowedMentions::new().empty_users())).await.unwrap();
         }
     }
 }
@@ -468,7 +467,7 @@ async fn word_guess(ctx: &Context, word: &str, msg: &Message, wgs: &mut WordGame
             msg.react(&ctx, '✅').await?;
             let mut winners = String::new();
             for (user, points) in &wgs.guessers {
-                winners.push_str(&format!("<@{}>: {} ({} bókstavir, {} orð)\n", user.0, points.points, points.letters, points.words));
+                winners.push_str(&format!("<@{}>: {} ({} bókstavir, {} orð)\n", user, points.points, points.letters, points.words));
             }
             let table = wordgame::format_table(&wgs.table);
             let cntnt = format!("Taken words: {}\n\n{winners}\n{table}\nType `.` or `:` followed by your guess(es)", wgs.taken_words.join(", "));
@@ -476,7 +475,7 @@ async fn word_guess(ctx: &Context, word: &str, msg: &Message, wgs: &mut WordGame
             if wgs.taken_words.len() % 6 == 0 {
                 wgs.message = msg.channel_id.say(&ctx, table).await?;
             }
-            wgs.message.edit(&ctx, |f| f.content(cntnt)).await?;
+            wgs.message.edit(&ctx, EditMessage::new().content(cntnt)).await?;
         }
         Err(GuessError::AlreadyGuessed) => {
             msg.react(&ctx, ReactionType::Unicode("♻️".to_owned())).await?;

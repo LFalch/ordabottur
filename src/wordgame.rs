@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use rand::prelude::*;
-use rand::distributions::WeightedIndex;
+use rand::rng;
+use rand::distr::Distribution;
+use rand::distr::weighted::WeightedIndex;
 
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
@@ -48,7 +49,7 @@ fn weighted_index() -> WeightedIndex<u32> {
 pub fn gen_random_chars(n: usize) -> Vec<char> {
     let mut v = Vec::with_capacity(n);
     let dist = weighted_index();
-    let mut rng = thread_rng();
+    let mut rng = rng();
 
     for _ in 0..n {
         v.push(LETTER_WEIGHTS[dist.sample(&mut rng)].0);
@@ -61,7 +62,7 @@ pub type Table = [char; 16];
 pub fn gen_table() -> Table {
     let mut v = [' '; 16];
     let dist = weighted_index();
-    let mut rng = thread_rng();
+    let mut rng = rng();
 
     for c in &mut v {
         *c = LETTER_WEIGHTS[dist.sample(&mut rng)].0;

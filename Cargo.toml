@@ -13,12 +13,12 @@ from_res_error_resolve = []
 [dependencies]
 serde = {version = "1", features = ["derive"] }
 serde_json = "1.0"
-serenity = "0.11"
+serenity = "0.12"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 regex = "1"
-reqwest = { version = "0.11", features = ["json"] }
-scraper = {version = "0.14", default-features = false, features = ["deterministic"] }
+reqwest = { version = "0.12", features = ["json"] }
+scraper = {version = "0.22", default-features = false, features = ["deterministic"] }
 encoding_rs = "0.8"
-ego-tree = "0.6"
+ego-tree = "0.10"
 numbers_to_words = {git = "https://github.com/LFalch/numbers_to_words.git"}
-rand = { version = "0.8", features = ["alloc"] }
+rand = { version = "0.9", features = ["alloc"] }
